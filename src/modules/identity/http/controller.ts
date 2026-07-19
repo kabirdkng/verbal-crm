@@ -1,4 +1,10 @@
-import { getAuthContext, SESSION_COOKIE, type HeaderReader } from "@/lib/auth";
+import {
+  getAuthContext,
+  SESSION_COOKIE,
+  withSystemAuth,
+  withTenantAuth,
+  type HeaderReader
+} from "@/lib/auth";
 import { toErrorEnvelope } from "@/lib/errors";
 import { MeResponseSchema } from "@/modules/identity/contracts";
 import { IdentityService } from "@/modules/identity/service";
@@ -28,19 +34,21 @@ export class IdentityController {
 
   async register(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const payload = await request.json();
-      const result = await this.service.register(payload);
-      return {
-        status: 201,
-        body: {
-          data: {
-            userId: result.userId,
-            organizationId: result.organizationId,
-            role: result.role
-          }
-        },
-        headers: { "set-cookie": sessionCookie(result.sessionId) }
-      };
+      return await withSystemAuth(async () => {
+        const payload = await request.json();
+        const result = await this.service.register(payload);
+        return {
+          status: 201,
+          body: {
+            data: {
+              userId: result.userId,
+              organizationId: result.organizationId,
+              role: result.role
+            }
+          },
+          headers: { "set-cookie": sessionCookie(result.sessionId) }
+        };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -48,19 +56,21 @@ export class IdentityController {
 
   async login(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const payload = await request.json();
-      const result = await this.service.login(payload);
-      return {
-        status: 200,
-        body: {
-          data: {
-            userId: result.userId,
-            organizationId: result.organizationId,
-            role: result.role
-          }
-        },
-        headers: { "set-cookie": sessionCookie(result.sessionId) }
-      };
+      return await withSystemAuth(async () => {
+        const payload = await request.json();
+        const result = await this.service.login(payload);
+        return {
+          status: 200,
+          body: {
+            data: {
+              userId: result.userId,
+              organizationId: result.organizationId,
+              role: result.role
+            }
+          },
+          headers: { "set-cookie": sessionCookie(result.sessionId) }
+        };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -69,7 +79,9 @@ export class IdentityController {
   async logout(headers: HeaderReader): Promise<JsonResponse> {
     try {
       const context = await getAuthContext(headers);
-      await this.service.logout(context.sessionId);
+      await withSystemAuth(async () => {
+        await this.service.logout(context.sessionId);
+      });
       return {
         status: 200,
         body: { data: { ok: true } },
@@ -86,10 +98,11 @@ export class IdentityController {
 
   async me(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const me = await this.service.me(context);
-      const body = MeResponseSchema.parse({ data: me });
-      return { status: 200, body };
+      return await withTenantAuth(headers, async (context) => {
+        const me = await this.service.me(context);
+        const body = MeResponseSchema.parse({ data: me });
+        return { status: 200, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -97,9 +110,12 @@ export class IdentityController {
 
   async switchOrg(request: JsonRequest): Promise<JsonResponse> {
     try {
+      // switch needs current auth then system session write
       const context = await getAuthContext(request.headers);
       const payload = await request.json();
-      const result = await this.service.switchOrganization(context, payload);
+      const result = await withSystemAuth(() =>
+        this.service.switchOrganization(context, payload)
+      );
       return {
         status: 200,
         body: {
@@ -117,20 +133,21 @@ export class IdentityController {
 
   async updateSettings(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(request.headers);
-      const payload = await request.json();
-      const org = await this.service.updateSettings(context, payload);
-      return {
-        status: 200,
-        body: {
-          data: {
-            id: org.id,
-            name: org.name,
-            slug: org.slug,
-            aiBudgetUsd: org.aiBudgetUsd
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const org = await this.service.updateSettings(context, payload);
+        return {
+          status: 200,
+          body: {
+            data: {
+              id: org.id,
+              name: org.name,
+              slug: org.slug,
+              aiBudgetUsd: org.aiBudgetUsd
+            }
           }
-        }
-      };
+        };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -138,20 +155,21 @@ export class IdentityController {
 
   async members(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const members = await this.service.listMembers(context);
-      return {
-        status: 200,
-        body: {
-          data: members.map((member) => ({
-            id: member.id,
-            userId: member.userId,
-            email: member.email,
-            name: member.name,
-            role: member.role
-          }))
-        }
-      };
+      return await withTenantAuth(headers, async (context) => {
+        const members = await this.service.listMembers(context);
+        return {
+          status: 200,
+          body: {
+            data: members.map((member) => ({
+              id: member.id,
+              userId: member.userId,
+              email: member.email,
+              name: member.name,
+              role: member.role
+            }))
+          }
+        };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }

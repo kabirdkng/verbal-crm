@@ -1,4 +1,4 @@
-import { getPrisma } from "@/lib/prisma";
+import { getDb } from "@/lib/prisma";
 import type { Message, MessageStatus, MessageDirection, MessageChannel } from "@/modules/messages/domain";
 import type { CreateMessageInput, MessagesRepository } from "@/modules/messages/repository";
 
@@ -34,7 +34,7 @@ function toDomain(row: {
 
 export class PrismaMessagesRepository implements MessagesRepository {
   async create(input: CreateMessageInput): Promise<Message> {
-    const row = await getPrisma().message.create({
+    const row = await getDb().message.create({
       data: {
         organizationId: input.organizationId,
         conversationId: input.conversationId,
@@ -55,7 +55,7 @@ export class PrismaMessagesRepository implements MessagesRepository {
     organizationId: string,
     conversationId: string
   ): Promise<Message[]> {
-    const rows = await getPrisma().message.findMany({
+    const rows = await getDb().message.findMany({
       where: { organizationId, conversationId },
       orderBy: { createdAt: "asc" }
     });
@@ -66,7 +66,7 @@ export class PrismaMessagesRepository implements MessagesRepository {
     organizationId: string,
     providerMessageId: string
   ): Promise<Message | null> {
-    const row = await getPrisma().message.findFirst({
+    const row = await getDb().message.findFirst({
       where: { organizationId, providerMessageId }
     });
     return row ? toDomain(row) : null;

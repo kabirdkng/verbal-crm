@@ -1,5 +1,5 @@
 import type { Role } from "@/lib/auth";
-import { getPrisma } from "@/lib/prisma";
+import { getPrismaAdmin } from "@/lib/prisma";
 import type {
   MembershipRecord,
   OrganizationRecord,
@@ -10,14 +10,14 @@ import type { IdentityRepository } from "@/modules/identity/repository";
 
 export class PrismaIdentityRepository implements IdentityRepository {
   async findUserByEmail(email: string): Promise<UserRecord | null> {
-    const row = await getPrisma().user.findUnique({
+    const row = await getPrismaAdmin().user.findUnique({
       where: { email: email.trim().toLowerCase() }
     });
     return row;
   }
 
   async findUserById(userId: string): Promise<UserRecord | null> {
-    return getPrisma().user.findUnique({ where: { id: userId } });
+    return getPrismaAdmin().user.findUnique({ where: { id: userId } });
   }
 
   async createUser(input: {
@@ -25,7 +25,7 @@ export class PrismaIdentityRepository implements IdentityRepository {
     name: string;
     passwordHash: string;
   }): Promise<UserRecord> {
-    return getPrisma().user.create({
+    return getPrismaAdmin().user.create({
       data: {
         email: input.email.trim().toLowerCase(),
         name: input.name.trim(),
@@ -38,7 +38,7 @@ export class PrismaIdentityRepository implements IdentityRepository {
     name: string;
     slug: string;
   }): Promise<OrganizationRecord> {
-    return getPrisma().organization.create({
+    return getPrismaAdmin().organization.create({
       data: {
         name: input.name.trim(),
         slug: input.slug.trim().toLowerCase(),
@@ -48,14 +48,14 @@ export class PrismaIdentityRepository implements IdentityRepository {
   }
 
   async findOrganization(organizationId: string): Promise<OrganizationRecord | null> {
-    return getPrisma().organization.findUnique({ where: { id: organizationId } });
+    return getPrismaAdmin().organization.findUnique({ where: { id: organizationId } });
   }
 
   async updateOrganizationBudget(
     organizationId: string,
     aiBudgetUsd: number
   ): Promise<OrganizationRecord> {
-    return getPrisma().organization.update({
+    return getPrismaAdmin().organization.update({
       where: { id: organizationId },
       data: { aiBudgetUsd }
     });
@@ -66,7 +66,7 @@ export class PrismaIdentityRepository implements IdentityRepository {
     organizationId: string;
     role: Role;
   }): Promise<MembershipRecord> {
-    const row = await getPrisma().membership.create({
+    const row = await getPrismaAdmin().membership.create({
       data: {
         userId: input.userId,
         organizationId: input.organizationId,
@@ -77,7 +77,7 @@ export class PrismaIdentityRepository implements IdentityRepository {
   }
 
   async listMembershipsForUser(userId: string): Promise<MembershipRecord[]> {
-    const rows = await getPrisma().membership.findMany({ where: { userId } });
+    const rows = await getPrismaAdmin().membership.findMany({ where: { userId } });
     return rows.map((row) => ({ ...row, role: row.role as Role }));
   }
 
@@ -85,7 +85,7 @@ export class PrismaIdentityRepository implements IdentityRepository {
     userId: string,
     organizationId: string
   ): Promise<MembershipRecord | null> {
-    const row = await getPrisma().membership.findUnique({
+    const row = await getPrismaAdmin().membership.findUnique({
       where: { userId_organizationId: { userId, organizationId } }
     });
     return row ? { ...row, role: row.role as Role } : null;
@@ -97,7 +97,7 @@ export class PrismaIdentityRepository implements IdentityRepository {
     role: Role;
     expiresAt: Date;
   }): Promise<SessionRecord> {
-    const row = await getPrisma().session.create({
+    const row = await getPrismaAdmin().session.create({
       data: {
         userId: input.userId,
         organizationId: input.organizationId,
@@ -109,18 +109,18 @@ export class PrismaIdentityRepository implements IdentityRepository {
   }
 
   async findSession(sessionId: string): Promise<SessionRecord | null> {
-    const row = await getPrisma().session.findUnique({ where: { id: sessionId } });
+    const row = await getPrismaAdmin().session.findUnique({ where: { id: sessionId } });
     return row ? { ...row, role: row.role as Role } : null;
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    await getPrisma().session.deleteMany({ where: { id: sessionId } });
+    await getPrismaAdmin().session.deleteMany({ where: { id: sessionId } });
   }
 
   async listMembers(
     organizationId: string
   ): Promise<Array<MembershipRecord & { email: string; name: string }>> {
-    const rows = await getPrisma().membership.findMany({
+    const rows = await getPrismaAdmin().membership.findMany({
       where: { organizationId },
       include: { user: true }
     });

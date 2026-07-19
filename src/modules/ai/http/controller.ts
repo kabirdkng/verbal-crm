@@ -1,4 +1,4 @@
-import { getAuthContext, type HeaderReader } from "@/lib/auth";
+import { withTenantAuth, type HeaderReader } from "@/lib/auth";
 import { toErrorEnvelope } from "@/lib/errors";
 import {
   AiUsageResponseSchema,
@@ -21,11 +21,12 @@ export class AiController {
 
   async suggest(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(request.headers);
-      const payload = await request.json();
-      const result = await this.service.suggestReply(context, payload);
-      const body = SuggestReplyResponseSchema.parse({ data: result });
-      return { status: 200, body };
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const result = await this.service.suggestReply(context, payload);
+        const body = SuggestReplyResponseSchema.parse({ data: result });
+        return { status: 200, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -33,10 +34,11 @@ export class AiController {
 
   async usage(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const result = await this.service.listUsage(context);
-      const body = AiUsageResponseSchema.parse({ data: result });
-      return { status: 200, body };
+      return await withTenantAuth(headers, async (context) => {
+        const result = await this.service.listUsage(context);
+        const body = AiUsageResponseSchema.parse({ data: result });
+        return { status: 200, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }

@@ -1,4 +1,4 @@
-import { getAuthContext, type HeaderReader } from "@/lib/auth";
+import { withTenantAuth, type HeaderReader } from "@/lib/auth";
 import { toErrorEnvelope } from "@/lib/errors";
 import { AnalyticsService } from "@/modules/analytics/service";
 
@@ -12,9 +12,10 @@ export class AnalyticsController {
 
   async overview(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const data = await this.service.overview(context);
-      return { status: 200, body: { data } };
+      return await withTenantAuth(headers, async (context) => {
+        const data = await this.service.overview(context);
+        return { status: 200, body: { data } };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }

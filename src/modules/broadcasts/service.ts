@@ -4,7 +4,7 @@ import { getPersistenceMode } from "@/lib/config";
 import { AppError } from "@/lib/errors";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { createId } from "@/lib/ids";
-import { getPrisma } from "@/lib/prisma";
+import { getDb } from "@/lib/prisma";
 import { getStore, type BroadcastRecord, type BroadcastStatus } from "@/lib/store";
 import { z } from "zod";
 import type { ContactsRepository } from "@/modules/contacts/repository";
@@ -56,7 +56,7 @@ export class BroadcastsService {
 
     let broadcast: BroadcastRecord;
     if (getPersistenceMode() === "postgres") {
-      const row = await getPrisma().broadcast.create({
+      const row = await getDb().broadcast.create({
         data: {
           organizationId: context.organizationId,
           name: parsed.data.name,
@@ -105,7 +105,7 @@ export class BroadcastsService {
     broadcast.completedAt = new Date();
 
     if (getPersistenceMode() === "postgres") {
-      const row = await getPrisma().broadcast.update({
+      const row = await getDb().broadcast.update({
         where: { id: broadcast.id },
         data: {
           sentCount: broadcast.sentCount,
@@ -136,7 +136,7 @@ export class BroadcastsService {
   async list(context: AuthContext) {
     requireAnyRole(context, ["admin", "manager", "agent"]);
     if (getPersistenceMode() === "postgres") {
-      const rows = await getPrisma().broadcast.findMany({
+      const rows = await getDb().broadcast.findMany({
         where: { organizationId: context.organizationId },
         orderBy: { createdAt: "desc" }
       });

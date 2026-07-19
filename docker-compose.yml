@@ -11,6 +11,8 @@ services:
       - "5432:5432"
     volumes:
       - verbal_crm_pg_data:/var/lib/postgresql/data
+      # Creates verbal_app (non-superuser) on first volume init only
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U verbal -d verbal_crm"]
       interval: 5s

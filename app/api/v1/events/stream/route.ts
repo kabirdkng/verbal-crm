@@ -5,21 +5,25 @@ import { getStore } from "@/lib/store";
 
 /**
  * Server-Sent Events stream of domain events for the authenticated organization.
- * Phase 4 realtime — poll-style snapshot stream suitable for local demo.
+ * Auth is resolved once at connect; event bus remains in-process for Phase 4/5.
  */
 export async function GET(request: NextRequest): Promise<Response> {
   try {
     const context = await getAuthContext(request.headers);
     if (!isFeatureEnabled("realtime", context.organizationId)) {
-      return new Response(JSON.stringify({ error: { code: "FORBIDDEN", message: "Realtime disabled" } }), {
-        status: 403,
-        headers: { "content-type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ error: { code: "FORBIDDEN", message: "Realtime disabled" } }),
+        {
+          status: 403,
+          headers: { "content-type": "application/json" }
+        }
+      );
     }
 
     const encoder = new TextEncoder();
     let cursor = getStore().domainEvents.length;
     let closed = false;
+    const organizationId = context.organizationId;
 
     const stream = new ReadableStream({
       start(controller) {
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest): Promise<Response> {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
         };
 
-        send({ type: "connected", organizationId: context.organizationId, at: new Date().toISOString() });
+        send({ type: "connected", organizationId, at: new Date().toISOString() });
 
         const interval = setInterval(() => {
           if (closed) {
@@ -38,7 +42,7 @@ export async function GET(request: NextRequest): Promise<Response> {
           while (cursor < events.length) {
             const event = events[cursor]!;
             cursor += 1;
-            if (event.organizationId === context.organizationId) {
+            if (event.organizationId === organizationId) {
               send({
                 type: event.type,
                 id: event.id,

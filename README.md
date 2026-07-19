@@ -19,10 +19,10 @@ Requires Docker Desktop running.
 ```bash
 npm install
 npm run docker:up          # Postgres + Redis
-cp .env.docker .env.local  # PERSISTENCE_MODE=postgres, QUEUE_MODE=redis
-npm run db:migrate         # apply Prisma migrations
-npm run db:seed            # demo org/user/templates
-npm run dev
+npm run db:grant-app-role  # once: create verbal_app (RLS-enforced role)
+cp .env.docker .env.local  # app=verbal_app, admin=verbal
+npm run db:setup           # migrate + seed as admin
+npm run dev                # app uses Postgres RLS + Redis queue
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -30,8 +30,8 @@ Open [http://localhost:3000](http://localhost:3000).
 **Demo login:** `admin@demo.local` / `demo-password`
 
 ```bash
-npm test                   # unit tests (memory mode)
-npm run test:integration   # Postgres integration (Docker up + .env.local)
+npm test                   # unit tests (memory mode) — 22
+npm run test:integration   # Postgres + RLS (Docker) — 6
 npm run build
 ```
 

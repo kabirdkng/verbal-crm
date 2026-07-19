@@ -1,4 +1,4 @@
-import { getAuthContext, type HeaderReader } from "@/lib/auth";
+import { withTenantAuth, type HeaderReader } from "@/lib/auth";
 import { toErrorEnvelope } from "@/lib/errors";
 import {
   CreateTemplateResponseSchema,
@@ -21,11 +21,12 @@ export class TemplatesController {
 
   async post(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(request.headers);
-      const payload = await request.json();
-      const created = await this.service.create(context, payload);
-      const body = CreateTemplateResponseSchema.parse({ data: created });
-      return { status: 201, body };
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const created = await this.service.create(context, payload);
+        const body = CreateTemplateResponseSchema.parse({ data: created });
+        return { status: 201, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -33,10 +34,11 @@ export class TemplatesController {
 
   async get(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const templates = await this.service.listForOrganization(context);
-      const body = ListTemplatesResponseSchema.parse({ data: templates });
-      return { status: 200, body };
+      return await withTenantAuth(headers, async (context) => {
+        const templates = await this.service.listForOrganization(context);
+        const body = ListTemplatesResponseSchema.parse({ data: templates });
+        return { status: 200, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }

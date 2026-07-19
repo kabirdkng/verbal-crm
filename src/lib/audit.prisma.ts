@@ -1,9 +1,9 @@
-import { getPrisma } from "@/lib/prisma";
+import { getDb } from "@/lib/prisma";
 import type { AuditEvent, AuditLogger } from "@/lib/audit";
 
 export class PrismaAuditLogger implements AuditLogger {
   async log(event: AuditEvent): Promise<void> {
-    await getPrisma().auditEvent.create({
+    await getDb().auditEvent.create({
       data: {
         action: event.action,
         organizationId: event.organizationId,
@@ -16,7 +16,7 @@ export class PrismaAuditLogger implements AuditLogger {
   }
 
   async listByOrganization(organizationId: string): Promise<AuditEvent[]> {
-    const rows = await getPrisma().auditEvent.findMany({
+    const rows = await getDb().auditEvent.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" },
       take: 100

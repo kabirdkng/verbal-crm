@@ -1,4 +1,4 @@
-import { getAuthContext, type HeaderReader } from "@/lib/auth";
+import { withTenantAuth, type HeaderReader } from "@/lib/auth";
 import { toErrorEnvelope } from "@/lib/errors";
 import {
   ListMessagesResponseSchema,
@@ -21,25 +21,24 @@ export class MessagesController {
 
   async list(headers: HeaderReader, conversationId: string): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const messages = await this.service.listForConversation(context, conversationId);
-      const body = ListMessagesResponseSchema.parse({ data: messages });
-      return { status: 200, body };
+      return await withTenantAuth(headers, async (context) => {
+        const messages = await this.service.listForConversation(context, conversationId);
+        const body = ListMessagesResponseSchema.parse({ data: messages });
+        return { status: 200, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
   }
 
-  async send(
-    request: JsonRequest,
-    conversationId: string
-  ): Promise<JsonResponse> {
+  async send(request: JsonRequest, conversationId: string): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(request.headers);
-      const payload = await request.json();
-      const message = await this.service.sendOutbound(context, conversationId, payload);
-      const body = SendMessageResponseSchema.parse({ data: message });
-      return { status: 201, body };
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const message = await this.service.sendOutbound(context, conversationId, payload);
+        const body = SendMessageResponseSchema.parse({ data: message });
+        return { status: 201, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }

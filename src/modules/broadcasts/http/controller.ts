@@ -1,4 +1,4 @@
-import { getAuthContext, type HeaderReader } from "@/lib/auth";
+import { withTenantAuth, type HeaderReader } from "@/lib/auth";
 import { toErrorEnvelope } from "@/lib/errors";
 import { BroadcastsService } from "@/modules/broadcasts/service";
 
@@ -43,9 +43,10 @@ export class BroadcastsController {
 
   async list(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const items = await this.service.list(context);
-      return { status: 200, body: { data: items.map(toResponse) } };
+      return await withTenantAuth(headers, async (context) => {
+        const items = await this.service.list(context);
+        return { status: 200, body: { data: items.map(toResponse) } };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -53,10 +54,11 @@ export class BroadcastsController {
 
   async create(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(request.headers);
-      const payload = await request.json();
-      const broadcast = await this.service.createAndSend(context, payload);
-      return { status: 201, body: { data: toResponse(broadcast) } };
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const broadcast = await this.service.createAndSend(context, payload);
+        return { status: 201, body: { data: toResponse(broadcast) } };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }

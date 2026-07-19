@@ -1,33 +1,22 @@
-# Build and test (verified 2026-07-20, Docker local)
+# Build and test (RLS-aware Docker)
 
-## Commands
 ```bash
 npm install
-npm run docker:up          # requires Docker daemon
+npm run docker:up
+npm run db:grant-app-role   # once per volume
 cp .env.docker .env.local
-npm run db:migrate
-npm run db:seed
-npm run dev
+npm run db:setup            # admin migrate + seed
+npm run dev                 # app uses verbal_app + RLS
 
-npm test                   # unit (memory) — 22 tests
-npm run test:integration   # needs PERSISTENCE_MODE=postgres + Docker Postgres
+npm test                    # 22 unit (memory)
+npm run test:integration    # 6 tests (Postgres + RLS)
 npm run build
 ```
 
-## Docker services
-- postgres:16 → localhost:5432 (user/pass/db: verbal/verbal/verbal_crm)
-- redis:7 → localhost:6379
-- optional app profile: `npm run docker:app`
+## Credentials
+- Demo: admin@demo.local / demo-password
+- DB app: verbal_app / verbal
+- DB admin: verbal / verbal
 
-## Modes
-- `PERSISTENCE_MODE=memory` (default unit tests)
-- `PERSISTENCE_MODE=postgres` + `DATABASE_URL`
-- `QUEUE_MODE=memory` | `redis` + `REDIS_URL`
-
-## Demo credentials
-- admin@demo.local / demo-password
-- org_demo
-
-## CI
-- Unit tests do not require Docker
-- Integration tests should run in a job with postgres service
+## Pitfall
+If integration tests “see” cross-tenant rows, DATABASE_URL is probably still the superuser.

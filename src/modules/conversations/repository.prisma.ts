@@ -1,5 +1,5 @@
 import { normalizePhone } from "@/lib/phone";
-import { getPrisma } from "@/lib/prisma";
+import { getDb } from "@/lib/prisma";
 import type { Conversation, ConversationStatus } from "@/modules/conversations/domain";
 import type {
   ConversationsRepository,
@@ -34,7 +34,7 @@ function toDomain(row: {
 
 export class PrismaConversationsRepository implements ConversationsRepository {
   async create(input: CreateConversationInput): Promise<Conversation> {
-    const row = await getPrisma().conversation.create({
+    const row = await getDb().conversation.create({
       data: {
         organizationId: input.organizationId,
         contactId: input.contactId,
@@ -46,7 +46,7 @@ export class PrismaConversationsRepository implements ConversationsRepository {
   }
 
   async listByOrganization(organizationId: string): Promise<Conversation[]> {
-    const rows = await getPrisma().conversation.findMany({
+    const rows = await getDb().conversation.findMany({
       where: { organizationId },
       orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }]
     });
@@ -57,7 +57,7 @@ export class PrismaConversationsRepository implements ConversationsRepository {
     organizationId: string,
     conversationId: string
   ): Promise<Conversation | null> {
-    const row = await getPrisma().conversation.findFirst({
+    const row = await getDb().conversation.findFirst({
       where: { id: conversationId, organizationId }
     });
     return row ? toDomain(row) : null;
@@ -67,7 +67,7 @@ export class PrismaConversationsRepository implements ConversationsRepository {
     organizationId: string,
     contactId: string
   ): Promise<Conversation | null> {
-    const row = await getPrisma().conversation.findFirst({
+    const row = await getDb().conversation.findFirst({
       where: {
         organizationId,
         contactId,
@@ -83,7 +83,7 @@ export class PrismaConversationsRepository implements ConversationsRepository {
     conversationId: string,
     at: Date
   ): Promise<void> {
-    await getPrisma().conversation.updateMany({
+    await getDb().conversation.updateMany({
       where: { id: conversationId, organizationId },
       data: {
         lastInboundAt: at,
@@ -99,7 +99,7 @@ export class PrismaConversationsRepository implements ConversationsRepository {
     conversationId: string,
     at: Date
   ): Promise<void> {
-    await getPrisma().conversation.updateMany({
+    await getDb().conversation.updateMany({
       where: { id: conversationId, organizationId },
       data: {
         lastMessageAt: at,
@@ -113,7 +113,7 @@ export class PrismaConversationsRepository implements ConversationsRepository {
     conversationId: string,
     assignedUserId: string | null
   ): Promise<Conversation | null> {
-    const result = await getPrisma().conversation.updateMany({
+    const result = await getDb().conversation.updateMany({
       where: { id: conversationId, organizationId },
       data: { assignedUserId }
     });
@@ -128,7 +128,7 @@ export class PrismaConversationsRepository implements ConversationsRepository {
     conversationId: string,
     status: ConversationStatus
   ): Promise<Conversation | null> {
-    const result = await getPrisma().conversation.updateMany({
+    const result = await getDb().conversation.updateMany({
       where: { id: conversationId, organizationId },
       data: { status }
     });

@@ -1,4 +1,4 @@
-import { getAuthContext, type HeaderReader } from "@/lib/auth";
+import { withTenantAuth, type HeaderReader } from "@/lib/auth";
 import { toErrorEnvelope } from "@/lib/errors";
 import { AutomationsService } from "@/modules/automations/service";
 
@@ -37,9 +37,10 @@ export class AutomationsController {
 
   async list(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const rules = await this.service.list(context);
-      return { status: 200, body: { data: rules.map(toResponse) } };
+      return await withTenantAuth(headers, async (context) => {
+        const rules = await this.service.list(context);
+        return { status: 200, body: { data: rules.map(toResponse) } };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -47,10 +48,11 @@ export class AutomationsController {
 
   async create(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(request.headers);
-      const payload = await request.json();
-      const rule = await this.service.create(context, payload);
-      return { status: 201, body: { data: toResponse(rule) } };
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const rule = await this.service.create(context, payload);
+        return { status: 201, body: { data: toResponse(rule) } };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }

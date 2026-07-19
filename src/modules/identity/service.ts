@@ -1,7 +1,9 @@
 import { SESSION_TTL_MS, type AuthContext } from "@/lib/auth";
 import type { AuditLogger } from "@/lib/audit";
+import { getPersistenceMode } from "@/lib/config";
 import { AppError } from "@/lib/errors";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { runWithTenant } from "@/lib/prisma";
 import { assertRateLimit } from "@/lib/rate-limit";
 import {
   LoginRequestSchema,
@@ -67,14 +69,21 @@ export class IdentityService {
       expiresAt: new Date(Date.now() + SESSION_TTL_MS)
     });
 
-    await this.auditLogger.log({
-      action: "auth.registered",
-      organizationId: organization.id,
-      actorUserId: user.id,
-      entityType: "user",
-      entityId: user.id,
-      metadata: { email: user.email }
-    });
+    const writeAudit = async () =>
+      this.auditLogger.log({
+        action: "auth.registered",
+        organizationId: organization.id,
+        actorUserId: user.id,
+        entityType: "user",
+        entityId: user.id,
+        metadata: { email: user.email }
+      });
+
+    if (getPersistenceMode() === "postgres") {
+      await runWithTenant(organization.id, writeAudit);
+    } else {
+      await writeAudit();
+    }
 
     return {
       sessionId: session.id,
@@ -123,13 +132,20 @@ export class IdentityService {
       expiresAt: new Date(Date.now() + SESSION_TTL_MS)
     });
 
-    await this.auditLogger.log({
-      action: "auth.login",
-      organizationId: membership.organizationId,
-      actorUserId: user.id,
-      entityType: "session",
-      entityId: session.id
-    });
+    const writeAudit = async () =>
+      this.auditLogger.log({
+        action: "auth.login",
+        organizationId: membership.organizationId,
+        actorUserId: user.id,
+        entityType: "session",
+        entityId: session.id
+      });
+
+    if (getPersistenceMode() === "postgres") {
+      await runWithTenant(membership.organizationId, writeAudit);
+    } else {
+      await writeAudit();
+    }
 
     return {
       sessionId: session.id,

@@ -4,7 +4,7 @@ import { getPersistenceMode } from "@/lib/config";
 import { AppError } from "@/lib/errors";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { createId } from "@/lib/ids";
-import { getPrisma } from "@/lib/prisma";
+import { getDb } from "@/lib/prisma";
 import { getStore, type AutomationRuleRecord } from "@/lib/store";
 import { z } from "zod";
 import type { TemplatesRepository } from "@/modules/templates/repository";
@@ -27,7 +27,7 @@ export class AutomationsService {
   async list(context: AuthContext) {
     requireAnyRole(context, ["admin", "manager", "agent"]);
     if (getPersistenceMode() === "postgres") {
-      return getPrisma().automationRule.findMany({
+      return getDb().automationRule.findMany({
         where: { organizationId: context.organizationId },
         orderBy: { createdAt: "desc" }
       });
@@ -63,7 +63,7 @@ export class AutomationsService {
 
     let rule: AutomationRuleRecord;
     if (getPersistenceMode() === "postgres") {
-      rule = await getPrisma().automationRule.create({
+      rule = await getDb().automationRule.create({
         data: {
           organizationId: context.organizationId,
           name: parsed.data.name,
@@ -109,7 +109,7 @@ export class AutomationsService {
     const body = input.body.toLowerCase();
     let rules: AutomationRuleRecord[];
     if (getPersistenceMode() === "postgres") {
-      rules = await getPrisma().automationRule.findMany({
+      rules = await getDb().automationRule.findMany({
         where: { organizationId: input.organizationId, enabled: true }
       });
     } else {

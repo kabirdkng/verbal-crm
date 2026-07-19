@@ -49,7 +49,8 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://verbal:verbal@localhost:5432/verbal_crm?schema=public
+      DATABASE_URL: postgresql://verbal_app:verbal@localhost:5432/verbal_crm?schema=public
+      DATABASE_URL_ADMIN: postgresql://verbal:verbal@localhost:5432/verbal_crm?schema=public
       REDIS_URL: redis://localhost:6379
       PERSISTENCE_MODE: postgres
       QUEUE_MODE: redis
@@ -61,7 +62,14 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
-      - name: Migrate and seed
-        run: npx prisma migrate deploy && npx prisma db seed
-      - name: Integration tests
+      - name: Create app role and grants
+        env:
+          PGPASSWORD: verbal
+        run: |
+          psql -h localhost -U verbal -d verbal_crm -f scripts/grant-app-role.sql
+      - name: Migrate and seed (admin)
+        run: |
+          DATABASE_URL="$DATABASE_URL_ADMIN" npx prisma migrate deploy
+          DATABASE_URL="$DATABASE_URL_ADMIN" npx prisma db seed
+      - name: Integration tests (app role + RLS)
         run: npm run test:integration

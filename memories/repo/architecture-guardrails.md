@@ -1,15 +1,12 @@
-# Architecture guardrails (Docker + dual persistence)
+# Architecture guardrails (RLS + Docker)
 
-- Stack: Next.js 15, TypeScript strict, Zod, Vitest, Prisma 6, ioredis
-- Layers: route → controller → service → repository/adapter
-- Persistence dual-mode via `PERSISTENCE_MODE`:
-  - `memory` — AppStore (unit tests / zero-deps)
-  - `postgres` — Prisma repositories (Docker local / production)
-- Queue dual-mode via `QUEUE_MODE`:
-  - `memory` — InMemoryJobQueue
-  - `redis` — RedisJobQueue (Docker redis)
-- Auth: cookie sessions resolved from memory or Prisma Session table
-- Composition root: `src/modules/app/container.ts`
-- Docker: `docker-compose.yml` (postgres, redis, optional app)
-- Migrations: `prisma/migrations`
-- RLS SQL: `prisma/rls.sql` (apply on Neon after migrate)
+- Dual persistence: `PERSISTENCE_MODE=memory|postgres`
+- Dual queue: `QUEUE_MODE=memory|redis`
+- **Postgres roles**
+  - `verbal` — superuser/owner; migrate + seed only (`DATABASE_URL_ADMIN`)
+  - `verbal_app` — app runtime (`DATABASE_URL`); NOSUPERUSER, NOBYPASSRLS
+- **RLS**: FORCE on tenant tables; GUC `app.organization_id` via `runWithTenant`
+- **Prisma**: extension injects org filters; `getDb()` uses tx inside tenant scope
+- **HTTP**: `withTenantAuth` wraps authenticated handlers
+- **Worker**: WhatsApp inbound `runWithTenant(organizationId, ...)`
+- Superuser always bypasses RLS — never point app `DATABASE_URL` at `verbal`

@@ -1,4 +1,6 @@
 import type { EventBus } from "@/lib/events";
+import { getPersistenceMode } from "@/lib/config";
+import { runWithTenant } from "@/lib/prisma";
 import type { QueueJobRecord } from "@/lib/store";
 import type { AutomationsService } from "@/modules/automations/service";
 import type { ContactsRepository } from "@/modules/contacts/repository";
@@ -23,6 +25,17 @@ export class WhatsAppInboundWorker {
     }
 
     const payload = job.payload as InboundMessageJobPayload;
+    const { organizationId } = payload;
+
+    if (getPersistenceMode() === "postgres") {
+      await runWithTenant(organizationId, () => this.processInbound(payload));
+      return;
+    }
+
+    await this.processInbound(payload);
+  }
+
+  private async processInbound(payload: InboundMessageJobPayload): Promise<void> {
     const { organizationId, providerMessageId, from, body, profileName, webhookEventId } =
       payload;
 

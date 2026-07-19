@@ -1,4 +1,4 @@
-import { getPrisma } from "@/lib/prisma";
+import { getDb } from "@/lib/prisma";
 import type { MessageTemplate, TemplateStatus } from "@/modules/templates/domain";
 import type { CreateTemplateInput, TemplatesRepository } from "@/modules/templates/repository";
 
@@ -24,7 +24,7 @@ function toDomain(row: {
 
 export class PrismaTemplatesRepository implements TemplatesRepository {
   async create(input: CreateTemplateInput): Promise<MessageTemplate> {
-    const row = await getPrisma().messageTemplate.create({
+    const row = await getDb().messageTemplate.create({
       data: {
         organizationId: input.organizationId,
         name: input.name,
@@ -37,7 +37,7 @@ export class PrismaTemplatesRepository implements TemplatesRepository {
   }
 
   async listByOrganization(organizationId: string): Promise<MessageTemplate[]> {
-    const rows = await getPrisma().messageTemplate.findMany({
+    const rows = await getDb().messageTemplate.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" }
     });
@@ -48,7 +48,7 @@ export class PrismaTemplatesRepository implements TemplatesRepository {
     organizationId: string,
     name: string
   ): Promise<MessageTemplate | null> {
-    const row = await getPrisma().messageTemplate.findFirst({
+    const row = await getDb().messageTemplate.findFirst({
       where: { organizationId, name, status: "approved" }
     });
     return row ? toDomain(row) : null;

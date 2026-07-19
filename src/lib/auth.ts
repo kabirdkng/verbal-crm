@@ -1,6 +1,6 @@
 import { AppError } from "@/lib/errors";
 import { getPersistenceMode } from "@/lib/config";
-import { getPrisma } from "@/lib/prisma";
+import { getPrismaAdmin, runAsSystem, runWithTenant } from "@/lib/prisma";
 import { getStore } from "@/lib/store";
 
 export type Role = "admin" | "manager" | "agent";
@@ -47,7 +47,8 @@ function isRole(value: string): value is Role {
 
 async function resolveSessionContext(sessionId: string): Promise<AuthContext | null> {
   if (getPersistenceMode() === "postgres") {
-    const session = await getPrisma().session.findUnique({
+    // Sessions are global (not RLS-scoped); use admin client.
+    const session = await getPrismaAdmin().session.findUnique({
       where: { id: sessionId },
       include: { user: true }
     });
@@ -112,6 +113,28 @@ export function requireAnyRole(context: AuthContext, allowedRoles: Role[]): void
   if (!allowedRoles.includes(context.role)) {
     throw new AppError("FORBIDDEN", 403, "Insufficient role");
   }
+}
+
+/**
+ * Resolve auth, then run handler inside tenant RLS/ALS scope when using Postgres.
+ */
+export async function withTenantAuth<T>(
+  headers: HeaderReader,
+  fn: (context: AuthContext) => Promise<T>
+): Promise<T> {
+  const context = await getAuthContext(headers);
+  if (getPersistenceMode() === "postgres") {
+    return runWithTenant(context.organizationId, () => fn(context));
+  }
+  return fn(context);
+}
+
+/** Identity bootstrap paths that must not run under a tenant GUC. */
+export async function withSystemAuth<T>(fn: () => Promise<T>): Promise<T> {
+  if (getPersistenceMode() === "postgres") {
+    return runAsSystem(fn);
+  }
+  return fn();
 }
 
 export const SESSION_COOKIE = "verbal_session";

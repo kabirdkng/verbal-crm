@@ -1,4 +1,4 @@
-import { getAuthContext, type HeaderReader } from "@/lib/auth";
+import { withTenantAuth, type HeaderReader } from "@/lib/auth";
 import { toErrorEnvelope } from "@/lib/errors";
 import {
   CreateContactResponseSchema,
@@ -22,11 +22,12 @@ export class ContactsController {
 
   async post(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(request.headers);
-      const payload = await request.json();
-      const created = await this.service.create(context, payload);
-      const body = CreateContactResponseSchema.parse({ data: created });
-      return { status: 201, body };
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const created = await this.service.create(context, payload);
+        const body = CreateContactResponseSchema.parse({ data: created });
+        return { status: 201, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -34,10 +35,11 @@ export class ContactsController {
 
   async get(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const contacts = await this.service.listForOrganization(context);
-      const body = ListContactsResponseSchema.parse({ data: contacts });
-      return { status: 200, body };
+      return await withTenantAuth(headers, async (context) => {
+        const contacts = await this.service.listForOrganization(context);
+        const body = ListContactsResponseSchema.parse({ data: contacts });
+        return { status: 200, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -45,10 +47,11 @@ export class ContactsController {
 
   async getById(headers: HeaderReader, contactId: string): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const contact = await this.service.getById(context, contactId);
-      const body = GetContactResponseSchema.parse({ data: contact });
-      return { status: 200, body };
+      return await withTenantAuth(headers, async (context) => {
+        const contact = await this.service.getById(context, contactId);
+        const body = GetContactResponseSchema.parse({ data: contact });
+        return { status: 200, body };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }

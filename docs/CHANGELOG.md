@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 — Tenant RLS + Prisma tenant context (2026-07-20)
+
+### Added
+- `runWithTenant` / `withTenantAuth` request-scoped tenant context
+- Prisma client extension injecting `organizationId` on tenant models
+- FORCE RLS migration + policies (`app.organization_id`)
+- App role `verbal_app` (non-superuser) so RLS is enforceable
+- Expanded Postgres integration tests (isolation, RLS, webhook, identity)
+- ADR-006
+
 ## 1.1.0 — Docker local infrastructure (2026-07-20)
 
 ### Added

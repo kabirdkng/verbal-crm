@@ -1,4 +1,4 @@
-import { getAuthContext, type HeaderReader } from "@/lib/auth";
+import { withTenantAuth, type HeaderReader } from "@/lib/auth";
 import { toErrorEnvelope } from "@/lib/errors";
 import { NotesService } from "@/modules/notes/service";
 
@@ -17,20 +17,21 @@ export class NotesController {
 
   async list(headers: HeaderReader, contactId: string): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      const notes = await this.service.list(context, contactId);
-      return {
-        status: 200,
-        body: {
-          data: notes.map((note) => ({
-            id: note.id,
-            contactId: note.contactId,
-            authorUserId: note.authorUserId,
-            body: note.body,
-            createdAt: note.createdAt.toISOString()
-          }))
-        }
-      };
+      return await withTenantAuth(headers, async (context) => {
+        const notes = await this.service.list(context, contactId);
+        return {
+          status: 200,
+          body: {
+            data: notes.map((note) => ({
+              id: note.id,
+              contactId: note.contactId,
+              authorUserId: note.authorUserId,
+              body: note.body,
+              createdAt: note.createdAt.toISOString()
+            }))
+          }
+        };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }
@@ -38,21 +39,22 @@ export class NotesController {
 
   async create(request: JsonRequest, contactId: string): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(request.headers);
-      const payload = await request.json();
-      const note = await this.service.create(context, contactId, payload);
-      return {
-        status: 201,
-        body: {
-          data: {
-            id: note.id,
-            contactId: note.contactId,
-            authorUserId: note.authorUserId,
-            body: note.body,
-            createdAt: note.createdAt.toISOString()
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const note = await this.service.create(context, contactId, payload);
+        return {
+          status: 201,
+          body: {
+            data: {
+              id: note.id,
+              contactId: note.contactId,
+              authorUserId: note.authorUserId,
+              body: note.body,
+              createdAt: note.createdAt.toISOString()
+            }
           }
-        }
-      };
+        };
+      });
     } catch (error) {
       return toErrorEnvelope(error);
     }

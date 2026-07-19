@@ -1,10 +1,10 @@
-import { getPrisma } from "@/lib/prisma";
+import { getDb } from "@/lib/prisma";
 import type { AiUsageRecord } from "@/lib/store";
 import type { AiUsageRepository, RecordUsageInput } from "@/modules/ai/repository";
 
 export class PrismaAiUsageRepository implements AiUsageRepository {
   async record(input: RecordUsageInput): Promise<AiUsageRecord> {
-    return getPrisma().aiUsage.create({
+    return getDb().aiUsage.create({
       data: {
         organizationId: input.organizationId,
         feature: input.feature,
@@ -18,14 +18,14 @@ export class PrismaAiUsageRepository implements AiUsageRepository {
   }
 
   async listByOrganization(organizationId: string): Promise<AiUsageRecord[]> {
-    return getPrisma().aiUsage.findMany({
+    return getDb().aiUsage.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" }
     });
   }
 
   async totalCostByOrganization(organizationId: string): Promise<number> {
-    const agg = await getPrisma().aiUsage.aggregate({
+    const agg = await getDb().aiUsage.aggregate({
       where: { organizationId },
       _sum: { estimatedCostUsd: true }
     });

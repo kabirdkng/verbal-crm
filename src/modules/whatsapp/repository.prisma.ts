@@ -1,4 +1,4 @@
-import { getPrisma } from "@/lib/prisma";
+import { getPrismaAdmin } from "@/lib/prisma";
 import type { WebhookEventRecord, WebhookEventStatus } from "@/lib/store";
 import type {
   CreateWebhookEventInput,
@@ -7,7 +7,7 @@ import type {
 
 export class PrismaWebhookEventsRepository implements WebhookEventsRepository {
   async findByProviderEventId(providerEventId: string): Promise<WebhookEventRecord | null> {
-    const row = await getPrisma().webhookEvent.findUnique({
+    const row = await getPrismaAdmin().webhookEvent.findUnique({
       where: { providerEventId }
     });
     if (!row) {
@@ -27,7 +27,7 @@ export class PrismaWebhookEventsRepository implements WebhookEventsRepository {
   }
 
   async create(input: CreateWebhookEventInput): Promise<WebhookEventRecord> {
-    const row = await getPrisma().webhookEvent.create({
+    const row = await getPrismaAdmin().webhookEvent.create({
       data: {
         organizationId: input.organizationId,
         provider: "whatsapp",
@@ -54,7 +54,7 @@ export class PrismaWebhookEventsRepository implements WebhookEventsRepository {
     status: WebhookEventStatus,
     errorMessage: string | null = null
   ): Promise<void> {
-    await getPrisma().webhookEvent.update({
+    await getPrismaAdmin().webhookEvent.update({
       where: { id },
       data: {
         status,

@@ -1,4 +1,4 @@
-import { getAuthContext, requireAnyRole, type HeaderReader } from "@/lib/auth";
+import { requireAnyRole, withTenantAuth, type HeaderReader } from "@/lib/auth";
 import type { AuditLogger } from "@/lib/audit";
 import { toErrorEnvelope } from "@/lib/errors";
 import { z } from "zod";
@@ -27,21 +27,22 @@ export class AuditController {
 
   async list(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = await getAuthContext(headers);
-      requireAnyRole(context, ["admin", "manager"]);
-      const events = await this.auditLogger.listByOrganization(context.organizationId);
-      const body = AuditListResponseSchema.parse({
-        data: events.map((event) => ({
-          action: event.action,
-          organizationId: event.organizationId,
-          actorUserId: event.actorUserId,
-          entityType: event.entityType,
-          entityId: event.entityId,
-          metadata: event.metadata,
-          createdAt: event.createdAt?.toISOString()
-        }))
+      return await withTenantAuth(headers, async (context) => {
+        requireAnyRole(context, ["admin", "manager"]);
+        const events = await this.auditLogger.listByOrganization(context.organizationId);
+        const body = AuditListResponseSchema.parse({
+          data: events.map((event) => ({
+            action: event.action,
+            organizationId: event.organizationId,
+            actorUserId: event.actorUserId,
+            entityType: event.entityType,
+            entityId: event.entityId,
+            metadata: event.metadata,
+            createdAt: event.createdAt?.toISOString()
+          }))
+        });
+        return { status: 200, body };
       });
-      return { status: 200, body };
     } catch (error) {
       return toErrorEnvelope(error);
     }

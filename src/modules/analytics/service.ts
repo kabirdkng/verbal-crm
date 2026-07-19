@@ -2,7 +2,7 @@ import { requireAnyRole, type AuthContext } from "@/lib/auth";
 import { getPersistenceMode } from "@/lib/config";
 import { AppError } from "@/lib/errors";
 import { isFeatureEnabled } from "@/lib/feature-flags";
-import { getPrisma } from "@/lib/prisma";
+import { getDb } from "@/lib/prisma";
 import { getStore } from "@/lib/store";
 
 export class AnalyticsService {
@@ -15,7 +15,7 @@ export class AnalyticsService {
     const orgId = context.organizationId;
 
     if (getPersistenceMode() === "postgres") {
-      const prisma = getPrisma();
+      const prisma = getDb();
       const [contacts, conversations, openConversations, messages, inbound, outbound, ai, broadcasts] =
         await Promise.all([
           prisma.contact.count({ where: { organizationId: orgId } }),

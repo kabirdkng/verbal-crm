@@ -55,64 +55,69 @@ async function main() {
     }
   });
 
-  await prisma.messageTemplate.upsert({
-    where: {
-      organizationId_name: {
-        organizationId: org.id,
-        name: "welcome_followup"
-      }
-    },
-    update: {
-      body: "Hi {{name}}, thanks for messaging us. How can we help?",
-      status: "approved",
-      language: "en"
-    },
-    create: {
-      id: "tpl_welcome",
-      organizationId: org.id,
-      name: "welcome_followup",
-      language: "en",
-      body: "Hi {{name}}, thanks for messaging us. How can we help?",
-      status: "approved"
-    }
-  });
+  // Tenant-scoped tables require app.organization_id under FORCE RLS.
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`SELECT set_config('app.organization_id', $1, true)`, org.id);
 
-  await prisma.messageTemplate.upsert({
-    where: {
-      organizationId_name: {
+    await tx.messageTemplate.upsert({
+      where: {
+        organizationId_name: {
+          organizationId: org.id,
+          name: "welcome_followup"
+        }
+      },
+      update: {
+        body: "Hi {{name}}, thanks for messaging us. How can we help?",
+        status: "approved",
+        language: "en"
+      },
+      create: {
+        id: "tpl_welcome",
         organizationId: org.id,
-        name: "auto_ack"
-      }
-    },
-    update: {
-      body: "Thanks for your message — an agent will be with you shortly.",
-      status: "approved"
-    },
-    create: {
-      id: "tpl_auto",
-      organizationId: org.id,
-      name: "auto_ack",
-      language: "en",
-      body: "Thanks for your message — an agent will be with you shortly.",
-      status: "approved"
-    }
-  });
-
-  const existingAuto = await prisma.automationRule.findFirst({
-    where: { id: "auto_demo_help" }
-  });
-  if (!existingAuto) {
-    await prisma.automationRule.create({
-      data: {
-        id: "auto_demo_help",
-        organizationId: org.id,
-        name: "Help keyword auto-ack",
-        enabled: true,
-        matchKeyword: "help",
-        templateName: "auto_ack"
+        name: "welcome_followup",
+        language: "en",
+        body: "Hi {{name}}, thanks for messaging us. How can we help?",
+        status: "approved"
       }
     });
-  }
+
+    await tx.messageTemplate.upsert({
+      where: {
+        organizationId_name: {
+          organizationId: org.id,
+          name: "auto_ack"
+        }
+      },
+      update: {
+        body: "Thanks for your message — an agent will be with you shortly.",
+        status: "approved"
+      },
+      create: {
+        id: "tpl_auto",
+        organizationId: org.id,
+        name: "auto_ack",
+        language: "en",
+        body: "Thanks for your message — an agent will be with you shortly.",
+        status: "approved"
+      }
+    });
+
+    const existingAuto = await tx.automationRule.findFirst({
+      where: { id: "auto_demo_help" }
+    });
+    if (!existingAuto) {
+      await tx.automationRule.create({
+        data: {
+          id: "auto_demo_help",
+          organizationId: org.id,
+          name: "Help keyword auto-ack",
+          enabled: true,
+          matchKeyword: "help",
+          templateName: "auto_ack"
+        }
+      });
+    }
+  });
 
   console.log("Seed complete:", {
     organizationId: org.id,

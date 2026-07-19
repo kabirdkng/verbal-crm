@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaAuditLogger } from "@/lib/audit.prisma";
-import { disconnectPrisma, getPrisma } from "@/lib/prisma";
+import { disconnectPrisma, getPrismaAdmin, runWithTenant } from "@/lib/prisma";
 import { ContactsController } from "@/modules/contacts/http/controller";
 import { PrismaContactsRepository } from "@/modules/contacts/repository.prisma";
 import { ContactsService } from "@/modules/contacts/service";
@@ -21,7 +21,7 @@ describe.runIf(run)("Contacts Postgres integration", () => {
 
   beforeAll(async () => {
     process.env.PERSISTENCE_MODE = "postgres";
-    await getPrisma().organization.create({
+    await getPrismaAdmin().organization.create({
       data: {
         id: orgId,
         name: "Integration Org",
@@ -35,14 +35,20 @@ describe.runIf(run)("Contacts Postgres integration", () => {
   });
 
   beforeEach(async () => {
-    await getPrisma().contact.deleteMany({ where: { organizationId: orgId } });
+    await runWithTenant(orgId, async () => {
+      const { getDb } = await import("@/lib/prisma");
+      await getDb().contact.deleteMany({ where: { organizationId: orgId } });
+      await getDb().auditEvent.deleteMany({ where: { organizationId: orgId } });
+    });
   });
 
   afterAll(async () => {
-    const prisma = getPrisma();
-    await prisma.auditEvent.deleteMany({ where: { organizationId: orgId } });
-    await prisma.contact.deleteMany({ where: { organizationId: orgId } });
-    await prisma.organization.deleteMany({ where: { id: orgId } });
+    await runWithTenant(orgId, async () => {
+      const { getDb } = await import("@/lib/prisma");
+      await getDb().auditEvent.deleteMany({ where: { organizationId: orgId } });
+      await getDb().contact.deleteMany({ where: { organizationId: orgId } });
+    });
+    await getPrismaAdmin().organization.deleteMany({ where: { id: orgId } });
     await disconnectPrisma();
   });
 

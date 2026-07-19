@@ -1,5 +1,5 @@
 import { normalizePhone } from "@/lib/phone";
-import { getPrisma } from "@/lib/prisma";
+import { getDb } from "@/lib/prisma";
 import type { Contact } from "@/modules/contacts/domain";
 import type { ContactsRepository, CreateContactInput } from "@/modules/contacts/repository";
 
@@ -27,7 +27,7 @@ function toDomain(row: {
 
 export class PrismaContactsRepository implements ContactsRepository {
   async create(input: CreateContactInput): Promise<Contact> {
-    const row = await getPrisma().contact.create({
+    const row = await getDb().contact.create({
       data: {
         organizationId: input.organizationId,
         fullName: input.fullName,
@@ -40,7 +40,7 @@ export class PrismaContactsRepository implements ContactsRepository {
   }
 
   async listByOrganization(organizationId: string): Promise<Contact[]> {
-    const rows = await getPrisma().contact.findMany({
+    const rows = await getDb().contact.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" }
     });
@@ -48,14 +48,14 @@ export class PrismaContactsRepository implements ContactsRepository {
   }
 
   async findById(organizationId: string, contactId: string): Promise<Contact | null> {
-    const row = await getPrisma().contact.findFirst({
+    const row = await getDb().contact.findFirst({
       where: { id: contactId, organizationId }
     });
     return row ? toDomain(row) : null;
   }
 
   async findByPhone(organizationId: string, phone: string): Promise<Contact | null> {
-    const row = await getPrisma().contact.findFirst({
+    const row = await getDb().contact.findFirst({
       where: { organizationId, phone: normalizePhone(phone) }
     });
     return row ? toDomain(row) : null;
