@@ -148,10 +148,47 @@ async function main() {
     }
   });
 
+  await prisma.voiceAgentConfig.upsert({
+    where: { organizationId: org.id },
+    update: {
+      enabled: true,
+      companyName: "Demo Organization",
+      agentName: "Verbal Assistant",
+      systemPrompt:
+        "You are the AI voice and chat agent for Demo Organization. Be helpful, concise, and professional. Never invent policies or order numbers.",
+      knowledgeBase:
+        "We offer WhatsApp customer support and CRM tools. Business hours: Mon–Fri 9am–6pm. Escalations go to a human agent when the customer asks for one.",
+      firstMessage:
+        "Hi, this is Verbal Assistant from Demo Organization. How can I help you today?",
+      language: "en",
+      voiceProvider: "11labs",
+      voiceId: "sarah",
+      model: "gpt-4o"
+    },
+    create: {
+      id: "vac_demo",
+      organizationId: org.id,
+      enabled: true,
+      companyName: "Demo Organization",
+      agentName: "Verbal Assistant",
+      systemPrompt:
+        "You are the AI voice and chat agent for Demo Organization. Be helpful, concise, and professional. Never invent policies or order numbers.",
+      knowledgeBase:
+        "We offer WhatsApp customer support and CRM tools. Business hours: Mon–Fri 9am–6pm. Escalations go to a human agent when the customer asks for one.",
+      firstMessage:
+        "Hi, this is Verbal Assistant from Demo Organization. How can I help you today?",
+      language: "en",
+      voiceProvider: "11labs",
+      voiceId: "sarah",
+      model: "gpt-4o"
+    }
+  });
+
   console.log("Seed complete:", {
     organizationId: org.id,
     tenantAdmin: { email: user.email, password: "demo-password" },
-    platformAdmin: { email: "platform@verbal.local", password: "demo-password" }
+    platformAdmin: { email: "platform@verbal.local", password: "demo-password" },
+    voiceAgent: "vac_demo (Vapi AI voice context)"
   });
 }
 

@@ -193,6 +193,9 @@ export type CallStatus =
   | "failed"
   | "permission_pending";
 
+export type CallChannel = "whatsapp" | "vapi";
+export type CallProvider = "whatsapp" | "vapi";
+
 export type CallRecord = {
   id: string;
   organizationId: string;
@@ -201,13 +204,43 @@ export type CallRecord = {
   phone: string;
   direction: CallDirection;
   status: CallStatus;
+  channel: CallChannel;
+  provider: CallProvider;
   providerCallId: string | null;
   agentUserId: string | null;
   answerSdp: string | null;
   durationSeconds: number | null;
   errorMessage: string | null;
+  /** End-of-call summary / transcript excerpt from Vapi or agent notes */
+  summary: string | null;
   startedAt: Date | null;
   endedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/**
+ * Tenant-owned AI voice agent context used by Vapi outbound/inbound and chat assist.
+ */
+export type VoiceAgentConfigRecord = {
+  id: string;
+  organizationId: string;
+  enabled: boolean;
+  companyName: string;
+  agentName: string;
+  /** Primary system / persona instructions for the AI agent */
+  systemPrompt: string;
+  /** Free-form business knowledge, FAQs, policies (injected into calls + chat) */
+  knowledgeBase: string;
+  firstMessage: string;
+  language: string;
+  voiceProvider: string;
+  voiceId: string;
+  model: string;
+  /** Optional tenant-owned Vapi credentials (platform env used as fallback) */
+  vapiApiKey: string | null;
+  vapiPhoneNumberId: string | null;
+  vapiAssistantId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -238,6 +271,7 @@ export type AppStore = {
   featureFlags: FeatureFlagRecord[];
   rateLimitBuckets: RateLimitBucketRecord[];
   calls: CallRecord[];
+  voiceAgentConfigs: VoiceAgentConfigRecord[];
 };
 
 function createEmptyStore(): AppStore {
@@ -260,7 +294,8 @@ function createEmptyStore(): AppStore {
     domainEvents: [],
     featureFlags: [],
     rateLimitBuckets: [],
-    calls: []
+    calls: [],
+    voiceAgentConfigs: []
   };
 }
 
@@ -361,6 +396,31 @@ export function seedDemoData(store: AppStore = getStore()): void {
     { key: "realtime", organizationId: null, enabled: true },
     { key: "analytics", organizationId: null, enabled: true },
     { key: "ai_assist", organizationId: null, enabled: true },
-    { key: "whatsapp_calling", organizationId: null, enabled: true }
+    { key: "whatsapp_calling", organizationId: null, enabled: true },
+    { key: "vapi_calling", organizationId: null, enabled: true }
   );
+
+  // Demo tenant voice agent context (used by Vapi mock + AI assist)
+  store.voiceAgentConfigs.push({
+    id: "vac_demo",
+    organizationId: "org_demo",
+    enabled: true,
+    companyName: "Demo Organization",
+    agentName: "Verbal Assistant",
+    systemPrompt:
+      "You are the AI voice and chat agent for Demo Organization. Be helpful, concise, and professional. Never invent policies or order numbers.",
+    knowledgeBase:
+      "We offer WhatsApp customer support and CRM tools. Business hours: Mon–Fri 9am–6pm. Escalations go to a human agent when the customer asks for one.",
+    firstMessage:
+      "Hi, this is Verbal Assistant from Demo Organization. How can I help you today?",
+    language: "en",
+    voiceProvider: "11labs",
+    voiceId: "sarah",
+    model: "gpt-4o",
+    vapiApiKey: null,
+    vapiPhoneNumberId: null,
+    vapiAssistantId: null,
+    createdAt: now,
+    updatedAt: now
+  });
 }

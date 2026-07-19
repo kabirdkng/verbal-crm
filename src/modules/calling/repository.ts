@@ -1,39 +1,55 @@
 import { createId } from "@/lib/ids";
-import { getStore, type CallDirection, type CallRecord, type CallStatus } from "@/lib/store";
+import {
+  getStore,
+  type CallChannel,
+  type CallDirection,
+  type CallProvider,
+  type CallRecord,
+  type CallStatus
+} from "@/lib/store";
 
-export type { CallRecord, CallStatus, CallDirection };
+export type { CallRecord, CallStatus, CallDirection, CallChannel, CallProvider };
+
+export type CreateCallInput = {
+  organizationId: string;
+  conversationId: string | null;
+  contactId: string;
+  phone: string;
+  direction: CallDirection;
+  status: CallStatus;
+  channel?: CallChannel;
+  provider?: CallProvider;
+  providerCallId?: string | null;
+  agentUserId?: string | null;
+  answerSdp?: string | null;
+  errorMessage?: string | null;
+  summary?: string | null;
+};
+
+export type CallUpdatePatch = Partial<
+  Pick<
+    CallRecord,
+    | "status"
+    | "providerCallId"
+    | "answerSdp"
+    | "durationSeconds"
+    | "errorMessage"
+    | "summary"
+    | "startedAt"
+    | "endedAt"
+    | "agentUserId"
+  >
+>;
 
 export interface CallsRepository {
-  create(input: {
-    organizationId: string;
-    conversationId: string | null;
-    contactId: string;
-    phone: string;
-    direction: CallDirection;
-    status: CallStatus;
-    providerCallId?: string | null;
-    agentUserId?: string | null;
-    answerSdp?: string | null;
-    errorMessage?: string | null;
-  }): Promise<CallRecord>;
+  create(input: CreateCallInput): Promise<CallRecord>;
   update(
     organizationId: string,
     callId: string,
-    patch: Partial<
-      Pick<
-        CallRecord,
-        | "status"
-        | "providerCallId"
-        | "answerSdp"
-        | "durationSeconds"
-        | "errorMessage"
-        | "startedAt"
-        | "endedAt"
-        | "agentUserId"
-      >
-    >
+    patch: CallUpdatePatch
   ): Promise<CallRecord | null>;
   findById(organizationId: string, callId: string): Promise<CallRecord | null>;
+  findByInternalId(callId: string): Promise<CallRecord | null>;
   findByProviderCallId(providerCallId: string): Promise<CallRecord | null>;
   listByOrganization(
     organizationId: string,
@@ -42,18 +58,7 @@ export interface CallsRepository {
 }
 
 export class InMemoryCallsRepository implements CallsRepository {
-  async create(input: {
-    organizationId: string;
-    conversationId: string | null;
-    contactId: string;
-    phone: string;
-    direction: CallDirection;
-    status: CallStatus;
-    providerCallId?: string | null;
-    agentUserId?: string | null;
-    answerSdp?: string | null;
-    errorMessage?: string | null;
-  }): Promise<CallRecord> {
+  async create(input: CreateCallInput): Promise<CallRecord> {
     const now = new Date();
     const row: CallRecord = {
       id: createId("call"),
@@ -63,11 +68,14 @@ export class InMemoryCallsRepository implements CallsRepository {
       phone: input.phone,
       direction: input.direction,
       status: input.status,
+      channel: input.channel ?? "whatsapp",
+      provider: input.provider ?? "whatsapp",
       providerCallId: input.providerCallId ?? null,
       agentUserId: input.agentUserId ?? null,
       answerSdp: input.answerSdp ?? null,
       durationSeconds: null,
       errorMessage: input.errorMessage ?? null,
+      summary: input.summary ?? null,
       startedAt: null,
       endedAt: null,
       createdAt: now,
@@ -80,19 +88,7 @@ export class InMemoryCallsRepository implements CallsRepository {
   async update(
     organizationId: string,
     callId: string,
-    patch: Partial<
-      Pick<
-        CallRecord,
-        | "status"
-        | "providerCallId"
-        | "answerSdp"
-        | "durationSeconds"
-        | "errorMessage"
-        | "startedAt"
-        | "endedAt"
-        | "agentUserId"
-      >
-    >
+    patch: CallUpdatePatch
   ): Promise<CallRecord | null> {
     const row = getStore().calls.find(
       (item) => item.id === callId && item.organizationId === organizationId
@@ -108,6 +104,10 @@ export class InMemoryCallsRepository implements CallsRepository {
         (item) => item.id === callId && item.organizationId === organizationId
       ) ?? null
     );
+  }
+
+  async findByInternalId(callId: string): Promise<CallRecord | null> {
+    return getStore().calls.find((item) => item.id === callId) ?? null;
   }
 
   async findByProviderCallId(providerCallId: string): Promise<CallRecord | null> {

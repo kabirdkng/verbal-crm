@@ -57,6 +57,12 @@ import { CallingController } from "@/modules/calling/http/controller";
 import { InMemoryCallsRepository } from "@/modules/calling/repository";
 import { PrismaCallsRepository } from "@/modules/calling/repository.prisma";
 import { CallingService } from "@/modules/calling/service";
+import { createVapiClient } from "@/modules/voice-agent/adapters/vapi";
+import { loadVapiConfig } from "@/modules/voice-agent/config";
+import { VoiceAgentController } from "@/modules/voice-agent/http/controller";
+import { InMemoryVoiceAgentConfigRepository } from "@/modules/voice-agent/repository";
+import { PrismaVoiceAgentConfigRepository } from "@/modules/voice-agent/repository.prisma";
+import { VoiceAgentService } from "@/modules/voice-agent/service";
 
 const persistence = getPersistenceMode();
 const queueMode = getQueueMode();
@@ -102,11 +108,17 @@ const notesRepository =
   persistence === "postgres" ? new PrismaNotesRepository() : new InMemoryNotesRepository();
 const callsRepository =
   persistence === "postgres" ? new PrismaCallsRepository() : new InMemoryCallsRepository();
+const voiceAgentConfigRepository =
+  persistence === "postgres"
+    ? new PrismaVoiceAgentConfigRepository()
+    : new InMemoryVoiceAgentConfigRepository();
 
 export const whatsAppConfig = loadWhatsAppConfig();
 export const aiConfig = loadAiConfig();
+export const vapiConfig = loadVapiConfig();
 const whatsAppSender = createWhatsAppSender(whatsAppConfig);
 const whatsAppCallingClient = createWhatsAppCallingClient(whatsAppConfig);
+const vapiClient = createVapiClient(vapiConfig);
 const aiProvider = createAiProvider(aiConfig);
 const signatureValidator = new MetaSignatureValidator(
   whatsAppConfig.appSecret,
@@ -142,6 +154,12 @@ const broadcastsService = new BroadcastsService(
   auditLogger
 );
 const analyticsService = new AnalyticsService();
+const voiceAgentService = new VoiceAgentService(
+  voiceAgentConfigRepository,
+  auditLogger,
+  identityRepository
+);
+
 const aiService = new AiService(
   aiProvider,
   aiUsageRepository,
@@ -150,7 +168,8 @@ const aiService = new AiService(
   contactsRepository,
   auditLogger,
   Number(process.env.AI_ORG_BUDGET_USD ?? "10"),
-  identityRepository
+  identityRepository,
+  voiceAgentConfigRepository
 );
 
 const callingService = new CallingService(
@@ -160,7 +179,9 @@ const callingService = new CallingService(
   contactsRepository,
   messagesRepository,
   auditLogger,
-  eventBus
+  eventBus,
+  vapiClient,
+  voiceAgentService
 );
 
 const ingestService = new WhatsAppIngestService(
@@ -200,6 +221,9 @@ export const whatsAppWebhookController = new WhatsAppWebhookController(
 export const aiController = new AiController(aiService);
 export const auditController = new AuditController(auditLogger);
 export const callingController = new CallingController(callingService);
+export const voiceAgentController = new VoiceAgentController(voiceAgentService);
+/** Exported for Vapi webhook route */
+export { callingService };
 
 const exportService = new ExportService(
   contactsRepository,

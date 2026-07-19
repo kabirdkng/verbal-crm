@@ -16,7 +16,8 @@
 - Staging: Vercel + Neon + Upstash; webhook inline drain off; cron or docker worker drains Redis
 - **Platform admin flow**: `users.is_platform_admin`; session role `platform` on `org_platform`; enter tenant issues `admin` session without membership; APIs under `/api/v1/platform/*`; UI `/admin` vs tenant CRM; cookie session authoritative
 - **AI**: all roles use `/api/v1/ai/assist` (suggest/improve/summarize/next_steps/translate); budget visible to everyone; metered
-- **Calling**: `voice_calls` RLS table; `/api/v1/calls/*`; mock auto-connect; Meta Graph `/calls` + permission request + `calls` webhook
+- **Calling**: `voice_calls` multi-channel (`whatsapp`|`vapi`); `/api/v1/calls` with `channel`; Meta Graph + Vapi
+- **Vapi**: `VAPI_MODE=mock|vapi`; tenant `voice_agent_configs` (context + optional keys); platform env fallback; webhook `/api/v1/webhooks/vapi`; chat assist shares tenant persona
 
 
 

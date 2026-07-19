@@ -40,6 +40,24 @@ type AuditEvent = {
   createdAt?: string;
 };
 
+type VoiceAgent = {
+  enabled: boolean;
+  companyName: string;
+  agentName: string;
+  systemPrompt: string;
+  knowledgeBase: string;
+  firstMessage: string;
+  language: string;
+  voiceProvider: string;
+  voiceId: string;
+  model: string;
+  hasVapiApiKey: boolean;
+  vapiPhoneNumberId: string | null;
+  vapiAssistantId: string | null;
+  vapiMode: "mock" | "vapi";
+  platformPhoneConfigured: boolean;
+};
+
 export default function SettingsPage() {
   const { session } = useSession();
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -54,6 +72,9 @@ export default function SettingsPage() {
   const [members, setMembers] = useState<Array<{ name: string; email: string; role: string }>>(
     []
   );
+  const [voice, setVoice] = useState<VoiceAgent | null>(null);
+  const [vapiApiKeyInput, setVapiApiKeyInput] = useState("");
+  const [voiceSaved, setVoiceSaved] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -96,6 +117,16 @@ export default function SettingsPage() {
       } catch {
         setMembers([]);
       }
+
+      try {
+        const voiceResult = await apiFetch<{ data: VoiceAgent }>(
+          "/api/v1/org/voice-agent",
+          session
+        );
+        setVoice(voiceResult.data);
+      } catch {
+        setVoice(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load settings");
     }
@@ -135,6 +166,41 @@ export default function SettingsPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update budget");
+    }
+  }
+
+  async function saveVoiceAgent(event: FormEvent) {
+    event.preventDefault();
+    if (!voice) return;
+    setError(null);
+    setVoiceSaved(null);
+    try {
+      const payload: Record<string, unknown> = {
+        enabled: voice.enabled,
+        companyName: voice.companyName,
+        agentName: voice.agentName,
+        systemPrompt: voice.systemPrompt,
+        knowledgeBase: voice.knowledgeBase,
+        firstMessage: voice.firstMessage,
+        language: voice.language,
+        voiceProvider: voice.voiceProvider,
+        voiceId: voice.voiceId,
+        model: voice.model,
+        vapiPhoneNumberId: voice.vapiPhoneNumberId,
+        vapiAssistantId: voice.vapiAssistantId
+      };
+      if (vapiApiKeyInput.trim()) {
+        payload.vapiApiKey = vapiApiKeyInput.trim();
+      }
+      const result = await apiFetch<{ data: VoiceAgent }>("/api/v1/org/voice-agent", session, {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      });
+      setVoice(result.data);
+      setVapiApiKeyInput("");
+      setVoiceSaved("AI voice agent context saved. Used for Vapi calls and chat assist.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save voice agent");
     }
   }
 
@@ -254,6 +320,159 @@ export default function SettingsPage() {
         </section>
 
         <div className="stack">
+          <section className="card stack">
+            <h2 style={{ margin: 0 }}>AI voice agent (Vapi)</h2>
+            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+              Tenant context powers AI voice calls to contacts and chat assist replies. Mode:{" "}
+              <strong>{voice?.vapiMode ?? "mock"}</strong>
+              {voice?.platformPhoneConfigured ? " · phone number configured" : " · set phone number id"}
+            </p>
+            {voiceSaved ? (
+              <div className="card" style={{ borderColor: "#1f6b57", margin: 0 }}>
+                {voiceSaved}
+              </div>
+            ) : null}
+            {voice ? (
+              <form className="stack" onSubmit={saveVoiceAgent}>
+                <label className="label" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={voice.enabled}
+                    onChange={(e) => setVoice({ ...voice, enabled: e.target.checked })}
+                  />
+                  Enabled
+                </label>
+                <label className="label">
+                  Company name
+                  <input
+                    className="input"
+                    value={voice.companyName}
+                    onChange={(e) => setVoice({ ...voice, companyName: e.target.value })}
+                    required
+                  />
+                </label>
+                <label className="label">
+                  Agent name
+                  <input
+                    className="input"
+                    value={voice.agentName}
+                    onChange={(e) => setVoice({ ...voice, agentName: e.target.value })}
+                    required
+                  />
+                </label>
+                <label className="label">
+                  System prompt (persona)
+                  <textarea
+                    className="textarea"
+                    value={voice.systemPrompt}
+                    onChange={(e) => setVoice({ ...voice, systemPrompt: e.target.value })}
+                    required
+                    rows={4}
+                  />
+                </label>
+                <label className="label">
+                  Knowledge base / FAQs / policies
+                  <textarea
+                    className="textarea"
+                    value={voice.knowledgeBase}
+                    onChange={(e) => setVoice({ ...voice, knowledgeBase: e.target.value })}
+                    rows={5}
+                    placeholder="Hours, pricing rules, product facts, escalation policy…"
+                  />
+                </label>
+                <label className="label">
+                  First message (call opening)
+                  <input
+                    className="input"
+                    value={voice.firstMessage}
+                    onChange={(e) => setVoice({ ...voice, firstMessage: e.target.value })}
+                    required
+                  />
+                </label>
+                <div className="row">
+                  <label className="label" style={{ flex: 1 }}>
+                    Language
+                    <input
+                      className="input"
+                      value={voice.language}
+                      onChange={(e) => setVoice({ ...voice, language: e.target.value })}
+                    />
+                  </label>
+                  <label className="label" style={{ flex: 1 }}>
+                    Model
+                    <input
+                      className="input"
+                      value={voice.model}
+                      onChange={(e) => setVoice({ ...voice, model: e.target.value })}
+                    />
+                  </label>
+                </div>
+                <div className="row">
+                  <label className="label" style={{ flex: 1 }}>
+                    Voice provider
+                    <input
+                      className="input"
+                      value={voice.voiceProvider}
+                      onChange={(e) => setVoice({ ...voice, voiceProvider: e.target.value })}
+                    />
+                  </label>
+                  <label className="label" style={{ flex: 1 }}>
+                    Voice ID
+                    <input
+                      className="input"
+                      value={voice.voiceId}
+                      onChange={(e) => setVoice({ ...voice, voiceId: e.target.value })}
+                    />
+                  </label>
+                </div>
+                <hr style={{ borderColor: "var(--border)", width: "100%" }} />
+                <h3 style={{ margin: 0 }}>Vapi credentials (optional per tenant)</h3>
+                <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+                  Falls back to platform <code>VAPI_API_KEY</code> / <code>VAPI_PHONE_NUMBER_ID</code>.
+                  {voice.hasVapiApiKey ? " API key is set." : " No API key yet."}
+                </p>
+                <label className="label">
+                  Vapi API key {voice.hasVapiApiKey ? "(leave blank to keep)" : ""}
+                  <input
+                    className="input"
+                    type="password"
+                    autoComplete="off"
+                    value={vapiApiKeyInput}
+                    onChange={(e) => setVapiApiKeyInput(e.target.value)}
+                    placeholder={voice.hasVapiApiKey ? "••••••••" : "sk-…"}
+                  />
+                </label>
+                <label className="label">
+                  Vapi phone number ID
+                  <input
+                    className="input"
+                    value={voice.vapiPhoneNumberId ?? ""}
+                    onChange={(e) =>
+                      setVoice({ ...voice, vapiPhoneNumberId: e.target.value || null })
+                    }
+                    placeholder="phone number id from Vapi dashboard"
+                  />
+                </label>
+                <label className="label">
+                  Vapi assistant ID (optional fixed assistant)
+                  <input
+                    className="input"
+                    value={voice.vapiAssistantId ?? ""}
+                    onChange={(e) =>
+                      setVoice({ ...voice, vapiAssistantId: e.target.value || null })
+                    }
+                    placeholder="leave empty to use transient assistant from context"
+                  />
+                </label>
+                <button className="btn btn-primary" type="submit">
+                  Save voice agent
+                </button>
+              </form>
+            ) : (
+              <div className="empty">Voice agent settings unavailable for this session.</div>
+            )}
+          </section>
+
           <section className="card stack">
             <h2 style={{ margin: 0 }}>Organization AI budget</h2>
             <form className="stack" onSubmit={saveBudget}>

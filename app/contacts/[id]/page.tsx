@@ -34,6 +34,7 @@ export default function ContactDetailPage() {
   const [noteBody, setNoteBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [callNote, setCallNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -112,6 +113,29 @@ export default function ContactDetailPage() {
     }
   }
 
+  async function callWithVapi() {
+    setBusy(true);
+    setError(null);
+    setCallNote(null);
+    try {
+      const result = await apiFetch<{
+        data: { id: string; status: string; errorMessage: string | null };
+      }>("/api/v1/calls", session, {
+        method: "POST",
+        body: JSON.stringify({ contactId: id, channel: "vapi" })
+      });
+      if (result.data.status === "failed") {
+        setError(result.data.errorMessage ?? "Vapi call failed");
+      } else {
+        setCallNote(`AI voice call started (${result.data.status}). Call id: ${result.data.id}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start Vapi call");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!contact && !error) {
     return <div className="empty">Loading…</div>;
   }
@@ -127,12 +151,28 @@ export default function ContactDetailPage() {
             </Link>
           </p>
         </div>
-        <button className="btn" type="button" disabled={busy} onClick={() => void remove()}>
-          Delete
-        </button>
+        <div className="row">
+          <button
+            className="btn btn-primary"
+            type="button"
+            disabled={busy}
+            onClick={() => void callWithVapi()}
+            title="Place AI voice call via Vapi using tenant agent context"
+          >
+            🤖 Call with Vapi
+          </button>
+          <button className="btn" type="button" disabled={busy} onClick={() => void remove()}>
+            Delete
+          </button>
+        </div>
       </header>
 
       {error ? <div className="error-banner" style={{ marginBottom: "1rem" }}>{error}</div> : null}
+      {callNote ? (
+        <div className="card" style={{ marginBottom: "1rem", borderColor: "#1f6b57" }}>
+          {callNote}
+        </div>
+      ) : null}
 
       <div className="grid-2">
         <section className="card">

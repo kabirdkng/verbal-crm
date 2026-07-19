@@ -48,9 +48,13 @@ describe("CallingService", () => {
       audit
     );
 
-    const started = await service.initiate(agent, { conversationId: conversation.id });
+    const started = await service.initiate(agent, {
+      conversationId: conversation.id,
+      channel: "whatsapp"
+    });
     expect(started.status).toBe("active");
     expect(started.direction).toBe("business_initiated");
+    expect(started.channel).toBe("whatsapp");
     expect(client.connects).toHaveLength(1);
 
     const ended = await service.terminate(agent, started.id);

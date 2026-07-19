@@ -10,6 +10,7 @@
 - **Platform admin control plane**: list/create tenants, enter tenant workspace, return to admin
 - AI: multi-action assist for all roles (mock + xAI) with budget metering/visibility
 - WhatsApp voice calling: mock lifecycle + Meta Calling API adapter, permission request, inbox controls
+- **Vapi AI voice**: tenant-owned agent context, outbound AI calls to contacts, chat/call persona parity
 - Analytics, audit, feature flags, org data export
 - Docker Postgres/Redis, RLS, dual-mode persistence
 - Tests: unit + integration suites green

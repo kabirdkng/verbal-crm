@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3.0 — Vapi AI voice agent + tenant context (2026-07-20)
+
+### Added
+- Per-tenant **AI voice agent** config (persona, knowledge base, first message, voice, model)
+- `GET|PATCH /api/v1/org/voice-agent` (admins write; all roles read)
+- **Vapi** outbound AI calls: `POST /api/v1/calls` with `channel: "vapi"`
+- Mock + live Vapi client; platform or tenant credentials
+- Webhook `POST /api/v1/webhooks/vapi` for end-of-call summary
+- Settings UI for voice context; “Call with Vapi” on contacts + inbox
+- Chat assist injects the same tenant context as voice
+- ADR-013
+
 ## 2.2.0 — Team AI assist + WhatsApp voice calling (2026-07-20)
 
 ### Added

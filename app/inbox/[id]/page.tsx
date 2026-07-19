@@ -47,9 +47,12 @@ type VoiceCall = {
   id: string;
   status: string;
   direction: string;
+  channel?: string;
+  provider?: string;
   phone: string;
   durationSeconds: number | null;
   errorMessage: string | null;
+  summary?: string | null;
   createdAt: string;
   startedAt: string | null;
   endedAt: string | null;
@@ -198,13 +201,13 @@ export default function ConversationPage() {
     }
   }
 
-  async function startCall() {
+  async function startCall(channel: "whatsapp" | "vapi" = "whatsapp") {
     setBusy(true);
     setError(null);
     try {
       const result = await apiFetch<{ data: VoiceCall }>("/api/v1/calls", session, {
         method: "POST",
-        body: JSON.stringify({ conversationId })
+        body: JSON.stringify({ conversationId, channel })
       });
       setActiveCall(result.data);
       if (result.data.status === "failed") {
@@ -376,7 +379,16 @@ export default function ConversationPage() {
                   className="btn btn-primary"
                   type="button"
                   disabled={busy}
-                  onClick={() => void startCall()}
+                  onClick={() => void startCall("vapi")}
+                  title="AI voice agent calls the contact using tenant context (Vapi)"
+                >
+                  🤖 AI voice call (Vapi)
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void startCall("whatsapp")}
                 >
                   📞 WhatsApp call
                 </button>
@@ -553,18 +565,25 @@ export default function ConversationPage() {
               <ul className="muted" style={{ margin: 0, paddingLeft: "1.1rem" }}>
                 {callHistory.slice(0, 8).map((call) => (
                   <li key={call.id} style={{ marginBottom: "0.35rem" }}>
-                    <strong>{call.status}</strong> · {call.direction.replace("_", " ")} ·{" "}
+                    <strong>{call.status}</strong> · {call.channel ?? "whatsapp"} ·{" "}
+                    {call.direction.replace("_", " ")} ·{" "}
                     {new Date(call.createdAt).toLocaleString()}
                     {call.durationSeconds != null ? ` · ${call.durationSeconds}s` : ""}
                     {call.errorMessage ? ` · ${call.errorMessage}` : ""}
+                    {call.summary ? (
+                      <div style={{ fontSize: "0.8rem" }}>{call.summary.slice(0, 160)}</div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             )}
             <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-              Mock mode simulates calls without WebRTC. Meta mode needs calling enabled on the
-              business number, call permissions, and an SDP offer for live media.
+              <strong>Vapi</strong> uses your tenant AI voice context (Settings).{" "}
+              <strong>WhatsApp</strong> mock simulates VoIP; Meta mode needs calling + SDP.
             </p>
+            <Link className="btn" href="/settings">
+              Edit AI voice context →
+            </Link>
           </section>
         </aside>
       </div>

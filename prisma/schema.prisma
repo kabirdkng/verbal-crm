@@ -28,9 +28,34 @@ model Organization {
   aiUsage       AiUsage[]
   webhookEvents WebhookEvent[]
   auditEvents   AuditEvent[]
-  voiceCalls    VoiceCall[]
+  voiceCalls         VoiceCall[]
+  voiceAgentConfig   VoiceAgentConfig?
 
   @@map("organizations")
+}
+
+model VoiceAgentConfig {
+  id                 String   @id @default(cuid())
+  organizationId     String   @unique @map("organization_id")
+  enabled            Boolean  @default(true)
+  companyName        String   @map("company_name")
+  agentName          String   @map("agent_name")
+  systemPrompt       String   @map("system_prompt") @db.Text
+  knowledgeBase      String   @default("") @map("knowledge_base") @db.Text
+  firstMessage       String   @map("first_message")
+  language           String   @default("en")
+  voiceProvider      String   @default("11labs") @map("voice_provider")
+  voiceId            String   @default("sarah") @map("voice_id")
+  model              String   @default("gpt-4o")
+  vapiApiKey         String?  @map("vapi_api_key")
+  vapiPhoneNumberId  String?  @map("vapi_phone_number_id")
+  vapiAssistantId    String?  @map("vapi_assistant_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("voice_agent_configs")
 }
 
 model User {
@@ -127,11 +152,14 @@ model VoiceCall {
   phone            String
   direction        String
   status           String
+  channel          String    @default("whatsapp")
+  provider         String    @default("whatsapp")
   providerCallId   String?   @map("provider_call_id")
   agentUserId      String?   @map("agent_user_id")
   answerSdp        String?   @map("answer_sdp")
   durationSeconds  Int?      @map("duration_seconds")
   errorMessage     String?   @map("error_message")
+  summary          String?   @db.Text
   startedAt        DateTime? @map("started_at")
   endedAt          DateTime? @map("ended_at")
   createdAt        DateTime  @default(now()) @map("created_at")

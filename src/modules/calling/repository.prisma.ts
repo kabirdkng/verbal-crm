@@ -1,5 +1,14 @@
 import { getDb, getPrismaAdmin } from "@/lib/prisma";
-import type { CallDirection, CallRecord, CallStatus, CallsRepository } from "@/modules/calling/repository";
+import type {
+  CallChannel,
+  CallDirection,
+  CallProvider,
+  CallRecord,
+  CallStatus,
+  CallsRepository,
+  CallUpdatePatch,
+  CreateCallInput
+} from "@/modules/calling/repository";
 
 function mapRow(row: {
   id: string;
@@ -9,11 +18,14 @@ function mapRow(row: {
   phone: string;
   direction: string;
   status: string;
+  channel: string;
+  provider: string;
   providerCallId: string | null;
   agentUserId: string | null;
   answerSdp: string | null;
   durationSeconds: number | null;
   errorMessage: string | null;
+  summary: string | null;
   startedAt: Date | null;
   endedAt: Date | null;
   createdAt: Date;
@@ -22,23 +34,14 @@ function mapRow(row: {
   return {
     ...row,
     direction: row.direction as CallDirection,
-    status: row.status as CallStatus
+    status: row.status as CallStatus,
+    channel: row.channel as CallChannel,
+    provider: row.provider as CallProvider
   };
 }
 
 export class PrismaCallsRepository implements CallsRepository {
-  async create(input: {
-    organizationId: string;
-    conversationId: string | null;
-    contactId: string;
-    phone: string;
-    direction: CallDirection;
-    status: CallStatus;
-    providerCallId?: string | null;
-    agentUserId?: string | null;
-    answerSdp?: string | null;
-    errorMessage?: string | null;
-  }): Promise<CallRecord> {
+  async create(input: CreateCallInput): Promise<CallRecord> {
     const row = await getDb().voiceCall.create({
       data: {
         organizationId: input.organizationId,
@@ -47,10 +50,13 @@ export class PrismaCallsRepository implements CallsRepository {
         phone: input.phone,
         direction: input.direction,
         status: input.status,
+        channel: input.channel ?? "whatsapp",
+        provider: input.provider ?? "whatsapp",
         providerCallId: input.providerCallId ?? null,
         agentUserId: input.agentUserId ?? null,
         answerSdp: input.answerSdp ?? null,
-        errorMessage: input.errorMessage ?? null
+        errorMessage: input.errorMessage ?? null,
+        summary: input.summary ?? null
       }
     });
     return mapRow(row);
@@ -59,19 +65,7 @@ export class PrismaCallsRepository implements CallsRepository {
   async update(
     organizationId: string,
     callId: string,
-    patch: Partial<
-      Pick<
-        CallRecord,
-        | "status"
-        | "providerCallId"
-        | "answerSdp"
-        | "durationSeconds"
-        | "errorMessage"
-        | "startedAt"
-        | "endedAt"
-        | "agentUserId"
-      >
-    >
+    patch: CallUpdatePatch
   ): Promise<CallRecord | null> {
     const existing = await getDb().voiceCall.findFirst({
       where: { id: callId, organizationId }
@@ -91,8 +85,12 @@ export class PrismaCallsRepository implements CallsRepository {
     return row ? mapRow(row) : null;
   }
 
+  async findByInternalId(callId: string): Promise<CallRecord | null> {
+    const row = await getPrismaAdmin().voiceCall.findUnique({ where: { id: callId } });
+    return row ? mapRow(row) : null;
+  }
+
   async findByProviderCallId(providerCallId: string): Promise<CallRecord | null> {
-    // Provider id is global for webhook correlation; use admin client.
     const row = await getPrismaAdmin().voiceCall.findFirst({
       where: { providerCallId }
     });

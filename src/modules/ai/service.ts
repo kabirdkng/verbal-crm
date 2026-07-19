@@ -12,6 +12,7 @@ import type { ContactsRepository } from "@/modules/contacts/repository";
 import type { ConversationsRepository } from "@/modules/conversations/repository";
 import type { MessagesRepository } from "@/modules/messages/repository";
 import type { IdentityRepository } from "@/modules/identity/repository";
+import type { VoiceAgentConfigRepository } from "@/modules/voice-agent/repository";
 
 const DEFAULT_BUDGET_USD = Number(process.env.AI_ORG_BUDGET_USD ?? "10");
 
@@ -39,7 +40,8 @@ export class AiService {
     private readonly contactsRepository: ContactsRepository,
     private readonly auditLogger: AuditLogger,
     private readonly budgetUsd: number = DEFAULT_BUDGET_USD,
-    private readonly identityRepository?: IdentityRepository
+    private readonly identityRepository?: IdentityRepository,
+    private readonly voiceAgentConfigRepository?: VoiceAgentConfigRepository
   ) {}
 
   /** All tenant roles (admin / manager / agent) and platform-in-tenant can use AI. */
@@ -111,6 +113,24 @@ export class AiService {
       conversation.contactId
     );
 
+    // Inject tenant voice-agent context so chat replies match call persona/knowledge.
+    let tenantInstruction = parsed.data.instruction;
+    if (this.voiceAgentConfigRepository) {
+      const voice = await this.voiceAgentConfigRepository.findByOrganization(
+        context.organizationId
+      );
+      if (voice?.enabled) {
+        const ctx = [
+          `Tenant AI agent persona (${voice.agentName} @ ${voice.companyName}):`,
+          voice.systemPrompt,
+          voice.knowledgeBase ? `Knowledge:\n${voice.knowledgeBase}` : null
+        ]
+          .filter(Boolean)
+          .join("\n");
+        tenantInstruction = [ctx, tenantInstruction].filter(Boolean).join("\n\n");
+      }
+    }
+
     let result;
     try {
       result = await this.provider.assist({
@@ -120,7 +140,7 @@ export class AiService {
         tone: parsed.data.tone ?? "professional",
         contactName: contact?.fullName,
         draft: parsed.data.draft,
-        instruction: parsed.data.instruction,
+        instruction: tenantInstruction,
         language: parsed.data.language,
         recentMessages: messages.slice(-12).map((message) => ({
           direction: message.direction,
