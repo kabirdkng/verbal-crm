@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { drainWhatsAppQueue, whatsAppWebhookController } from "@/modules/app/container";
+import {
+  drainWhatsAppQueue,
+  whatsAppConfig,
+  whatsAppWebhookController
+} from "@/modules/app/container";
 
 /**
  * Meta webhook verification (subscribe challenge).
@@ -16,9 +20,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 }
 
 /**
- * Inbound WhatsApp webhook: validate → dedupe → enqueue → ack.
- * Phase 1 drains the in-process queue after ACK response path for local demo reliability.
- * Production should ACK first and process via managed workers only.
+ * Inbound WhatsApp webhook: validate signature → dedupe → enqueue → ack.
+ *
+ * Production (WHATSAPP_INLINE_DRAIN=false): ack only; workers drain the queue.
+ * Local demo default: optional inline drain after accept for convenience.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const rawBody = await request.text();
@@ -39,9 +44,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     request.headers.get("x-organization-id")
   );
 
-  // Drain after building ack so handler remains conceptually ack-first.
-  // Errors in drain do not fail the webhook ack if already accepted.
-  if (result.status === 200) {
+  if (result.status === 200 && whatsAppConfig.inlineDrain) {
     try {
       await drainWhatsAppQueue();
     } catch {

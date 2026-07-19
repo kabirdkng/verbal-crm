@@ -79,3 +79,26 @@ Local Docker development uses **postgres + redis** via `.env.docker`.
 ## Health
 
 `GET /api/v1/health` reports dependency status when modes require them.
+
+## WhatsApp (Meta)
+
+Local default is **mock** (no Graph network calls).
+
+To send real messages:
+
+```bash
+# in .env.local
+WHATSAPP_MODE=meta
+WHATSAPP_ACCESS_TOKEN=...
+WHATSAPP_PHONE_NUMBER_ID=...
+WHATSAPP_APP_SECRET=...
+WHATSAPP_REQUIRE_SIGNATURE=true
+WHATSAPP_INLINE_DRAIN=false
+WHATSAPP_PHONE_NUMBER_MAP={"YOUR_PHONE_NUMBER_ID":"org_demo"}
+```
+
+Webhook URL: `https://<host>/api/v1/webhooks/whatsapp`  
+Worker drain (prod): `POST /api/v1/workers/drain` with `x-worker-secret`.
+
+See `docs/architecture/ADR-007-WHATSAPP-META.md`.
+

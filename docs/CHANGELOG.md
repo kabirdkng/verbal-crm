@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0 — Real WhatsApp Meta Cloud API (2026-07-20)
+
+### Added
+- `MetaGraphWhatsAppSender` for Graph API text + template sends
+- `WHATSAPP_MODE=mock|meta` factory
+- Phone number id → organization mapping (`WHATSAPP_PHONE_NUMBER_MAP`)
+- Production signature fail-closed + configurable require/inline-drain
+- Webhook no longer drains queue in production by default
+- ADR-007 + unit tests for signature, Graph sender, config mapping
+
 ## 1.2.0 — Tenant RLS + Prisma tenant context (2026-07-20)
 
 ### Added

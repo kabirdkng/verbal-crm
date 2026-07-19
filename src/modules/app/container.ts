@@ -42,7 +42,8 @@ import { InMemoryTemplatesRepository } from "@/modules/templates/repository";
 import { PrismaTemplatesRepository } from "@/modules/templates/repository.prisma";
 import { TemplatesService } from "@/modules/templates/service";
 import { MetaSignatureValidator } from "@/modules/whatsapp/adapters/signature";
-import { MockWhatsAppSender } from "@/modules/whatsapp/adapters/sender";
+import { createWhatsAppSender } from "@/modules/whatsapp/adapters/sender";
+import { loadWhatsAppConfig } from "@/modules/whatsapp/config";
 import { WhatsAppWebhookController } from "@/modules/whatsapp/http/controller";
 import { WhatsAppIngestService } from "@/modules/whatsapp/ingest.service";
 import { InMemoryWebhookEventsRepository } from "@/modules/whatsapp/repository";
@@ -92,9 +93,13 @@ const aiUsageRepository =
 const notesRepository =
   persistence === "postgres" ? new PrismaNotesRepository() : new InMemoryNotesRepository();
 
-const whatsAppSender = new MockWhatsAppSender();
+export const whatsAppConfig = loadWhatsAppConfig();
+const whatsAppSender = createWhatsAppSender(whatsAppConfig);
 const aiProvider = new MockAiProvider();
-const signatureValidator = new MetaSignatureValidator();
+const signatureValidator = new MetaSignatureValidator(
+  whatsAppConfig.appSecret,
+  whatsAppConfig.requireSignature
+);
 
 const identityService = new IdentityService(identityRepository, auditLogger);
 const contactsService = new ContactsService(contactsRepository, auditLogger);
@@ -139,7 +144,8 @@ const aiService = new AiService(
 const ingestService = new WhatsAppIngestService(
   webhookEventsRepository,
   queue,
-  signatureValidator
+  signatureValidator,
+  whatsAppConfig
 );
 
 const inboundWorker = new WhatsAppInboundWorker(
@@ -164,7 +170,10 @@ export const notesController = new NotesController(notesService);
 export const broadcastsController = new BroadcastsController(broadcastsService);
 export const automationsController = new AutomationsController(automationsService);
 export const analyticsController = new AnalyticsController(analyticsService);
-export const whatsAppWebhookController = new WhatsAppWebhookController(ingestService);
+export const whatsAppWebhookController = new WhatsAppWebhookController(
+  ingestService,
+  whatsAppConfig.verifyToken
+);
 export const aiController = new AiController(aiService);
 export const auditController = new AuditController(auditLogger);
 
@@ -183,6 +192,7 @@ export const appContainer = {
   aiUsageRepository,
   notesRepository,
   whatsAppSender,
+  whatsAppConfig,
   inboundWorker,
   automationsService,
   drainWhatsAppQueue

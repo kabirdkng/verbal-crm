@@ -20,7 +20,7 @@ function buildStack() {
   const ingest = new WhatsAppIngestService(
     webhookEvents,
     queue,
-    new MetaSignatureValidator(undefined)
+    new MetaSignatureValidator(undefined, false)
   );
   const worker = new WhatsAppInboundWorker(
     contacts,
@@ -109,13 +109,64 @@ describe("WhatsApp webhook idempotency", () => {
     expect(messages).toHaveLength(1);
   });
 
+  it("resolves organization from Meta phone_number_id map", async () => {
+    const queue = new InMemoryJobQueue();
+    const webhookEvents = new InMemoryWebhookEventsRepository();
+    const config = {
+      mode: "mock" as const,
+      accessToken: undefined,
+      apiVersion: "v21.0",
+      defaultPhoneNumberId: undefined,
+      phoneNumberToOrg: new Map([["10999888777", "org_from_phone"]]),
+      orgToPhoneNumber: new Map([["org_from_phone", "10999888777"]]),
+      appSecret: undefined,
+      requireSignature: false,
+      verifyToken: "x",
+      defaultOrganizationId: "org_fallback",
+      inlineDrain: true
+    };
+    const ingest = new WhatsAppIngestService(
+      webhookEvents,
+      queue,
+      new MetaSignatureValidator(undefined, false),
+      config
+    );
+
+    const payload = {
+      object: "whatsapp_business_account",
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "10999888777" },
+                contacts: [{ profile: { name: "Pat" }, wa_id: "15550001111" }],
+                messages: [
+                  {
+                    from: "15550001111",
+                    id: "wamid_meta_map",
+                    text: { body: "Mapped org" }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    };
+
+    const result = await ingest.ingest(JSON.stringify(payload), payload, null, null);
+    expect(result.organizationId).toBe("org_from_phone");
+    expect(result.duplicate).toBe(false);
+  });
+
   it("rejects invalid signatures when secret is configured", async () => {
     const queue = new InMemoryJobQueue();
     const webhookEvents = new InMemoryWebhookEventsRepository();
     const ingest = new WhatsAppIngestService(
       webhookEvents,
       queue,
-      new MetaSignatureValidator("test-secret")
+      new MetaSignatureValidator("test-secret", true)
     );
 
     const payload = {

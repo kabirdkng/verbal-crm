@@ -118,20 +118,23 @@ export class MessagesService {
       contactId: conversation.contactId,
       direction: "outbound",
       body,
-      status: sendResult.status,
+      status: sendResult.status === "failed" ? "failed" : sendResult.status,
       providerMessageId: sendResult.providerMessageId,
       templateName,
       createdByUserId: context.userId
     });
 
-    await this.conversationsRepository.touchOutbound(
-      context.organizationId,
-      conversation.id,
-      now
-    );
+    if (sendResult.status !== "failed") {
+      await this.conversationsRepository.touchOutbound(
+        context.organizationId,
+        conversation.id,
+        now
+      );
+    }
 
     await this.auditLogger.log({
-      action: "message.outbound_sent",
+      action:
+        sendResult.status === "failed" ? "message.outbound_failed" : "message.outbound_sent",
       organizationId: context.organizationId,
       actorUserId: context.userId,
       entityType: "message",
@@ -139,9 +142,19 @@ export class MessagesService {
       metadata: {
         conversationId: conversation.id,
         templateName,
-        withinServiceWindow: windowOpen
+        withinServiceWindow: windowOpen,
+        providerError: sendResult.errorMessage
       }
     });
+
+    if (sendResult.status === "failed") {
+      throw new AppError(
+        "INTERNAL_ERROR",
+        502,
+        sendResult.errorMessage ?? "WhatsApp send failed",
+        { messageId: message.id }
+      );
+    }
 
     await this.eventBus.publish({
       organizationId: context.organizationId,

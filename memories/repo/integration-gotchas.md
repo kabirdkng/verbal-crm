@@ -8,7 +8,11 @@
 ## WhatsApp
 - Idempotency key = provider message id.
 - Automations run only in worker after persist.
-- Phase 1 drain-after-ack remains for local demo; production should use `/workers/drain` or managed queue.
+- Local: `WHATSAPP_INLINE_DRAIN=true` drains after ack; production: use `/api/v1/workers/drain` + Redis.
+- `WHATSAPP_MODE=meta` needs `WHATSAPP_ACCESS_TOKEN` + phone number id mapping.
+- Production fails closed without `WHATSAPP_APP_SECRET` when signatures required.
+- `WHATSAPP_PHONE_NUMBER_MAP={"metaPhoneNumberId":"organizationId"}` routes multi-tenant webhooks.
+
 
 ## Broadcasts
 - Only approved templates; optional tag filter on contact.tags.

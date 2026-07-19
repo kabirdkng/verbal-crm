@@ -6,6 +6,11 @@ import {
 } from "@/modules/whatsapp/contracts";
 import type { SignatureValidator } from "@/modules/whatsapp/adapters/signature";
 import type { WebhookEventsRepository } from "@/modules/whatsapp/repository";
+import {
+  loadWhatsAppConfig,
+  resolveOrganizationId,
+  type WhatsAppRuntimeConfig
+} from "@/modules/whatsapp/config";
 
 export type InboundMessageJobPayload = {
   organizationId: string;
@@ -13,6 +18,7 @@ export type InboundMessageJobPayload = {
   from: string;
   body: string;
   profileName?: string;
+  phoneNumberId?: string;
   webhookEventId: string;
 };
 
@@ -21,15 +27,15 @@ export type WebhookIngestResult = {
   duplicate: boolean;
   eventId: string | null;
   jobId: string | null;
+  organizationId?: string;
 };
-
-const DEFAULT_ORG = process.env.WHATSAPP_DEFAULT_ORGANIZATION_ID ?? "org_demo";
 
 export class WhatsAppIngestService {
   constructor(
     private readonly webhookEvents: WebhookEventsRepository,
     private readonly queue: JobQueue,
-    private readonly signatureValidator: SignatureValidator
+    private readonly signatureValidator: SignatureValidator,
+    private readonly config: WhatsAppRuntimeConfig = loadWhatsAppConfig()
   ) {}
 
   async ingest(
@@ -52,17 +58,19 @@ export class WhatsAppIngestService {
       );
     }
 
-    const messages = this.extractMessages(parsed.data);
-    if (messages.length === 0) {
+    const extracted = this.extractInbound(parsed.data);
+    if (extracted.messages.length === 0) {
       return { accepted: true, duplicate: false, eventId: null, jobId: null };
     }
 
-    // Phase 1 processes first text message in payload (Meta can batch).
-    const message = messages[0]!;
-    const organizationId =
-      organizationIdHeader ||
-      parsed.data.organizationId ||
-      DEFAULT_ORG;
+    // Process first text message (Meta can batch multiple).
+    const message = extracted.messages[0]!;
+    const organizationId = resolveOrganizationId({
+      config: this.config,
+      phoneNumberId: extracted.phoneNumberId,
+      organizationIdHeader,
+      payloadOrganizationId: parsed.data.organizationId
+    });
 
     const existing = await this.webhookEvents.findByProviderEventId(message.id);
     if (existing) {
@@ -71,7 +79,8 @@ export class WhatsAppIngestService {
         accepted: true,
         duplicate: true,
         eventId: existing.id,
-        jobId: null
+        jobId: null,
+        organizationId
       };
     }
 
@@ -90,6 +99,7 @@ export class WhatsAppIngestService {
         from: message.from,
         body: message.text?.body ?? "",
         profileName: message.profileName,
+        phoneNumberId: extracted.phoneNumberId,
         webhookEventId: event.id
       } satisfies InboundMessageJobPayload
     });
@@ -100,27 +110,34 @@ export class WhatsAppIngestService {
       accepted: true,
       duplicate: false,
       eventId: event.id,
-      jobId: job.id
+      jobId: job.id,
+      organizationId
     };
   }
 
-  private extractMessages(payload: WhatsAppWebhookPayload): Array<{
-    id: string;
-    from: string;
-    text?: { body: string };
-    profileName?: string;
-  }> {
+  private extractInbound(payload: WhatsAppWebhookPayload): {
+    phoneNumberId?: string;
+    messages: Array<{
+      id: string;
+      from: string;
+      text?: { body: string };
+      profileName?: string;
+    }>;
+  } {
     if (payload.message) {
-      return [
-        {
-          id: payload.message.id,
-          from: payload.message.from,
-          text: payload.message.text,
-          profileName: payload.message.profileName
-        }
-      ];
+      return {
+        messages: [
+          {
+            id: payload.message.id,
+            from: payload.message.from,
+            text: payload.message.text,
+            profileName: payload.message.profileName
+          }
+        ]
+      };
     }
 
+    let phoneNumberId: string | undefined;
     const results: Array<{
       id: string;
       from: string;
@@ -130,6 +147,8 @@ export class WhatsAppIngestService {
 
     for (const entry of payload.entry ?? []) {
       for (const change of entry.changes ?? []) {
+        phoneNumberId =
+          phoneNumberId ?? change.value.metadata?.phone_number_id ?? undefined;
         const profileName = change.value.contacts?.[0]?.profile?.name;
         for (const message of change.value.messages ?? []) {
           if (!message.text?.body) {
@@ -145,6 +164,6 @@ export class WhatsAppIngestService {
       }
     }
 
-    return results;
+    return { phoneNumberId, messages: results };
   }
 }
