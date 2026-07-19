@@ -16,6 +16,7 @@
 | `src/modules/analytics` | overview metrics |
 | `src/modules/app/container.ts` | DI root |
 | `app/api/v1/*` | routes |
-| `app/{login,register,contacts,inbox,broadcasts,automations,analytics,settings}` | UI |
+| `app/{login,register,contacts,inbox,broadcasts,automations,analytics,team,settings}` | UI |
+| `src/modules/export` | Org data export |
 | `prisma/schema.prisma` + `rls.sql` | Postgres target |
 | `memories/repo` | agent operational memory |

@@ -12,6 +12,7 @@ type Conversation = {
   status: string;
   lastMessageAt: string | null;
   serviceWindowOpen: boolean;
+  assignedUserId: string | null;
 };
 
 type Contact = {
@@ -25,6 +26,9 @@ export default function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactId, setContactId] = useState("");
+  const [status, setStatus] = useState("");
+  const [assigned, setAssigned] = useState("");
+  const [q, setQ] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [webhookPhone, setWebhookPhone] = useState("+15559876543");
   const [webhookBody, setWebhookBody] = useState("Hi, I need help with my order");
@@ -33,8 +37,16 @@ export default function InboxPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
+      const params = new URLSearchParams();
+      if (status) params.set("status", status);
+      if (assigned) params.set("assigned", assigned);
+      if (q.trim()) params.set("q", q.trim());
+      const convPath = params.size
+        ? `/api/v1/conversations?${params}`
+        : "/api/v1/conversations";
+
       const [conversationResult, contactResult] = await Promise.all([
-        apiFetch<{ data: Conversation[] }>("/api/v1/conversations", session),
+        apiFetch<{ data: Conversation[] }>(convPath, session),
         apiFetch<{ data: Contact[] }>("/api/v1/contacts", session)
       ]);
       setConversations(conversationResult.data);
@@ -45,7 +57,7 @@ export default function InboxPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load inbox");
     }
-  }, [session, contactId]);
+  }, [session, contactId, status, assigned, q]);
 
   useEffect(() => {
     void load();
@@ -124,11 +136,32 @@ export default function InboxPage() {
         </div>
       ) : null}
 
+      <div className="row" style={{ marginBottom: "1rem" }}>
+        <select className="select" style={{ maxWidth: 140 }} value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status filter">
+          <option value="">All statuses</option>
+          <option value="open">open</option>
+          <option value="pending">pending</option>
+          <option value="closed">closed</option>
+        </select>
+        <select className="select" style={{ maxWidth: 160 }} value={assigned} onChange={(e) => setAssigned(e.target.value)} aria-label="Assignment filter">
+          <option value="">Anyone</option>
+          <option value="me">Assigned to me</option>
+          <option value="unassigned">Unassigned</option>
+        </select>
+        <input
+          className="input"
+          style={{ maxWidth: 200 }}
+          placeholder="Search phone…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
+
       <div className="grid-2">
         <section className="card stack">
           <h2 style={{ margin: 0 }}>Conversations</h2>
           {conversations.length === 0 ? (
-            <div className="empty">No conversations yet.</div>
+            <div className="empty">No conversations match filters.</div>
           ) : (
             <div className="conversation-list">
               {conversations.map((conversation) => {
@@ -149,6 +182,7 @@ export default function InboxPage() {
                     </div>
                     <div className="muted" style={{ marginTop: "0.35rem", fontSize: "0.85rem" }}>
                       {conversation.phone} · {conversation.status}
+                      {conversation.assignedUserId ? ` · ${conversation.assignedUserId}` : " · unassigned"}
                       {conversation.lastMessageAt
                         ? ` · ${new Date(conversation.lastMessageAt).toLocaleString()}`
                         : ""}
@@ -207,9 +241,6 @@ export default function InboxPage() {
               <button className="btn" type="submit">
                 Send webhook
               </button>
-              <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-                Uses `/api/v1/webhooks/whatsapp` with idempotent provider message IDs.
-              </p>
             </form>
           </section>
         </div>

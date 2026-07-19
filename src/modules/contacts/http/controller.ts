@@ -33,10 +33,13 @@ export class ContactsController {
     }
   }
 
-  async get(headers: HeaderReader): Promise<JsonResponse> {
+  async get(headers: HeaderReader, searchParams?: URLSearchParams): Promise<JsonResponse> {
     try {
       return await withTenantAuth(headers, async (context) => {
-        const contacts = await this.service.listForOrganization(context);
+        const contacts = await this.service.listForOrganization(context, {
+          q: searchParams?.get("q") ?? undefined,
+          tag: searchParams?.get("tag") ?? undefined
+        });
         const body = ListContactsResponseSchema.parse({ data: contacts });
         return { status: 200, body };
       });
@@ -51,6 +54,30 @@ export class ContactsController {
         const contact = await this.service.getById(context, contactId);
         const body = GetContactResponseSchema.parse({ data: contact });
         return { status: 200, body };
+      });
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
+
+  async patch(request: JsonRequest, contactId: string): Promise<JsonResponse> {
+    try {
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const contact = await this.service.update(context, contactId, payload);
+        const body = GetContactResponseSchema.parse({ data: contact });
+        return { status: 200, body };
+      });
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
+
+  async delete(headers: HeaderReader, contactId: string): Promise<JsonResponse> {
+    try {
+      return await withTenantAuth(headers, async (context) => {
+        await this.service.delete(context, contactId);
+        return { status: 204, body: null };
       });
     } catch (error) {
       return toErrorEnvelope(error);

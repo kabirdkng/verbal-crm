@@ -1,6 +1,6 @@
 # Verbal CRM
 
-Multi-tenant, AI-first customer communication platform — **Phases 1–5 complete**.
+Multi-tenant, AI-first customer communication platform — **v2.0 product complete** (Phases 1–9).
 
 ## What you get
 
@@ -11,7 +11,11 @@ Multi-tenant, AI-first customer communication platform — **Phases 1–5 comple
 | 3 | Notes, assignment, broadcasts, automations |
 | 4 | Analytics, SSE realtime, org AI budget |
 | 5 | Rate limits, feature flags, worker drain, production pack |
-| 6+ | Docker Postgres/Redis, RLS, Meta WhatsApp, worker, xAI |
+| 6 | Contact CRUD UI, notes, tags, search |
+| 7 | Inbox filters, assign/status controls |
+| 8 | Team invites, roles, org switcher |
+| 9 | Export, flags UI, completeness gate |
+| Infra | Docker, RLS, Meta WhatsApp, worker, xAI, staging pack |
 
 ## Quick start (Docker local — recommended)
 

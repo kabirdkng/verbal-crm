@@ -13,6 +13,7 @@ const links = [
   { href: "/broadcasts", label: "Broadcasts" },
   { href: "/automations", label: "Automations" },
   { href: "/analytics", label: "Analytics" },
+  { href: "/team", label: "Team" },
   { href: "/settings", label: "Settings" }
 ];
 

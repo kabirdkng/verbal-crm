@@ -6,9 +6,11 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { runWithTenant } from "@/lib/prisma";
 import { assertRateLimit } from "@/lib/rate-limit";
 import {
+  InviteMemberRequestSchema,
   LoginRequestSchema,
   RegisterRequestSchema,
   SwitchOrgRequestSchema,
+  UpdateMemberRoleRequestSchema,
   UpdateOrgSettingsRequestSchema
 } from "@/modules/identity/contracts";
 import type { IdentityRepository } from "@/modules/identity/repository";
@@ -255,5 +257,134 @@ export class IdentityService {
       throw new AppError("FORBIDDEN", 403, "Agents cannot list members");
     }
     return this.repository.listMembers(context.organizationId);
+  }
+
+  async inviteMember(context: AuthContext, payload: unknown) {
+    requireAdmin(context);
+    const parsed = InviteMemberRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new AppError("VALIDATION_ERROR", 400, "Invalid invite payload", parsed.error.flatten());
+    }
+
+    let user = await this.repository.findUserByEmail(parsed.data.email);
+    const temporaryPassword = parsed.data.temporaryPassword ?? `Tmp-${crypto.randomUUID().slice(0, 10)}`;
+    let createdUser = false;
+
+    if (!user) {
+      user = await this.repository.createUser({
+        email: parsed.data.email,
+        name: parsed.data.name?.trim() || parsed.data.email.split("@")[0] || "Member",
+        passwordHash: hashPassword(temporaryPassword)
+      });
+      createdUser = true;
+    }
+
+    const existing = await this.repository.findMembership(user.id, context.organizationId);
+    if (existing) {
+      throw new AppError("CONFLICT", 409, "User is already a member of this organization");
+    }
+
+    const membership = await this.repository.createMembership({
+      userId: user.id,
+      organizationId: context.organizationId,
+      role: parsed.data.role
+    });
+
+    await this.auditLogger.log({
+      action: "member.invited",
+      organizationId: context.organizationId,
+      actorUserId: context.userId,
+      entityType: "membership",
+      entityId: membership.id,
+      metadata: { email: user.email, role: membership.role, createdUser }
+    });
+
+    return {
+      membershipId: membership.id,
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: membership.role,
+      temporaryPassword: createdUser ? temporaryPassword : undefined
+    };
+  }
+
+  async updateMemberRole(context: AuthContext, membershipId: string, payload: unknown) {
+    requireAdmin(context);
+    const parsed = UpdateMemberRoleRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new AppError("VALIDATION_ERROR", 400, "Invalid role payload", parsed.error.flatten());
+    }
+
+    const updated = await this.repository.updateMembershipRole(
+      context.organizationId,
+      membershipId,
+      parsed.data.role
+    );
+    if (!updated) {
+      throw new AppError("NOT_FOUND", 404, "Membership not found");
+    }
+
+    await this.auditLogger.log({
+      action: "member.role_updated",
+      organizationId: context.organizationId,
+      actorUserId: context.userId,
+      entityType: "membership",
+      entityId: membershipId,
+      metadata: { role: parsed.data.role }
+    });
+
+    return updated;
+  }
+
+  async removeMember(context: AuthContext, membershipId: string) {
+    requireAdmin(context);
+    if (context.sessionId) {
+      // prevent removing self via crude check later using members list
+    }
+    const members = await this.repository.listMembers(context.organizationId);
+    const target = members.find((m) => m.id === membershipId);
+    if (!target) {
+      throw new AppError("NOT_FOUND", 404, "Membership not found");
+    }
+    if (target.userId === context.userId) {
+      throw new AppError("FORBIDDEN", 403, "Cannot remove yourself");
+    }
+
+    const ok = await this.repository.deleteMembership(context.organizationId, membershipId);
+    if (!ok) {
+      throw new AppError("NOT_FOUND", 404, "Membership not found");
+    }
+
+    await this.auditLogger.log({
+      action: "member.removed",
+      organizationId: context.organizationId,
+      actorUserId: context.userId,
+      entityType: "membership",
+      entityId: membershipId,
+      metadata: { userId: target.userId, email: target.email }
+    });
+  }
+
+  async listMyOrganizations(context: AuthContext) {
+    const memberships = await this.repository.listMembershipsForUser(context.userId);
+    const orgs = await this.repository.listOrganizationsByIds(
+      memberships.map((m) => m.organizationId)
+    );
+    return memberships.map((m) => {
+      const org = orgs.find((o) => o.id === m.organizationId);
+      return {
+        organizationId: m.organizationId,
+        role: m.role,
+        name: org?.name ?? m.organizationId,
+        slug: org?.slug ?? ""
+      };
+    });
+  }
+}
+
+function requireAdmin(context: AuthContext): void {
+  if (context.role !== "admin") {
+    throw new AppError("FORBIDDEN", 403, "Only admins can manage members");
   }
 }

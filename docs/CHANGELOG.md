@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.0 — Product complete (Phases 6–9) (2026-07-20)
+
+### Added
+- Phase 6: contact update/delete, detail page, notes UI, tags, search
+- Phase 7: inbox filters, assign/status controls in conversation UI
+- Phase 8: team invites, role update/remove, org switcher page
+- Phase 9: org JSON export, flags UI, structured logger, completeness definition
+- Tests for contacts mutation and team invite flows
+
 ## 1.6.0 — Staging deploy pack (2026-07-20)
 
 ### Added

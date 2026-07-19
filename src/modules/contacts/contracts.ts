@@ -7,6 +7,13 @@ export const CreateContactRequestSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(40)).max(20).optional()
 });
 
+export const UpdateContactRequestSchema = z.object({
+  fullName: z.string().trim().min(1).max(120).optional(),
+  phone: z.string().trim().min(8).max(32).optional(),
+  email: z.string().trim().email().nullable().optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(20).optional()
+});
+
 export const ContactResponseSchema = z.object({
   id: z.string(),
   organizationId: z.string(),

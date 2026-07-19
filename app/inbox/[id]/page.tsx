@@ -13,6 +13,7 @@ type Conversation = {
   status: string;
   serviceWindowOpen: boolean;
   lastInboundAt: string | null;
+  assignedUserId: string | null;
 };
 
 type Message = {
@@ -29,6 +30,12 @@ type Template = {
   status: string;
 };
 
+type Member = {
+  userId: string;
+  name: string;
+  email: string;
+};
+
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
   const conversationId = params.id;
@@ -37,6 +44,7 @@ export default function ConversationPage() {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [body, setBody] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [suggestion, setSuggestion] = useState<string | null>(null);
@@ -57,6 +65,13 @@ export default function ConversationPage() {
       setConversation(conversationResult.data);
       setMessages(messagesResult.data);
       setTemplates(templatesResult.data.filter((item) => item.status === "approved"));
+
+      try {
+        const membersResult = await apiFetch<{ data: Member[] }>("/api/v1/org/members", session);
+        setMembers(membersResult.data);
+      } catch {
+        setMembers([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load conversation");
     }
@@ -65,6 +80,22 @@ export default function ConversationPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function patchConversation(payload: Record<string, unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/conversations/${conversationId}`, session, {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
@@ -131,17 +162,53 @@ export default function ConversationPage() {
 
       {error ? <div className="error-banner" style={{ marginBottom: "1rem" }}>{error}</div> : null}
 
-      <section className="card stack">
-        {conversation ? (
-          <div className="muted" style={{ fontSize: "0.9rem" }}>
+      {conversation ? (
+        <section className="card row" style={{ marginBottom: "1rem" }}>
+          <label className="label" style={{ minWidth: 180 }}>
+            Status
+            <select
+              className="select"
+              value={conversation.status}
+              disabled={busy}
+              onChange={(e) => void patchConversation({ status: e.target.value })}
+            >
+              <option value="open">open</option>
+              <option value="pending">pending</option>
+              <option value="closed">closed</option>
+            </select>
+          </label>
+          <label className="label" style={{ minWidth: 220 }}>
+            Assign to
+            <select
+              className="select"
+              value={conversation.assignedUserId ?? ""}
+              disabled={busy}
+              onChange={(e) =>
+                void patchConversation({
+                  assignedUserId: e.target.value || null
+                })
+              }
+            >
+              <option value="">Unassigned</option>
+              <option value={session.userId}>Me ({session.userId})</option>
+              {members.map((m) => (
+                <option key={m.userId} value={m.userId}>
+                  {m.name} ({m.email})
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="muted" style={{ fontSize: "0.85rem" }}>
             {conversation.phone}
             {conversation.lastInboundAt
               ? ` · last inbound ${new Date(conversation.lastInboundAt).toLocaleString()}`
               : " · no inbound yet"}
           </div>
-        ) : (
-          <div className="empty">Loading conversation…</div>
-        )}
+        </section>
+      ) : null}
+
+      <section className="card stack">
+        {!conversation ? <div className="empty">Loading conversation…</div> : null}
 
         <div className="thread" aria-live="polite">
           {messages.length === 0 ? (
@@ -175,7 +242,7 @@ export default function ConversationPage() {
               placeholder={
                 conversation?.serviceWindowOpen
                   ? "Type a free-form reply…"
-                  : "Outside window — pick an approved template or paste template body"
+                  : "Outside window — pick an approved template"
               }
             />
           </label>

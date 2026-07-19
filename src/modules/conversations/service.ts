@@ -64,9 +64,26 @@ export class ConversationsService {
     return this.toResponse(created);
   }
 
-  async listForOrganization(context: AuthContext): Promise<ConversationResponse[]> {
+  async listForOrganization(
+    context: AuthContext,
+    query?: { status?: string; assigned?: "me" | "unassigned" | "any"; q?: string }
+  ): Promise<ConversationResponse[]> {
     requireAnyRole(context, ["admin", "manager", "agent"]);
-    const records = await this.repository.listByOrganization(context.organizationId);
+    let records = await this.repository.listByOrganization(context.organizationId);
+
+    if (query?.status && ["open", "pending", "closed"].includes(query.status)) {
+      records = records.filter((r) => r.status === query.status);
+    }
+    if (query?.assigned === "me") {
+      records = records.filter((r) => r.assignedUserId === context.userId);
+    } else if (query?.assigned === "unassigned") {
+      records = records.filter((r) => !r.assignedUserId);
+    }
+    if (query?.q) {
+      const q = query.q.toLowerCase();
+      records = records.filter((r) => r.phone.includes(q) || r.id.toLowerCase().includes(q));
+    }
+
     return records.map((record) => this.toResponse(record));
   }
 

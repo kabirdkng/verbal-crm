@@ -21,6 +21,17 @@ export const UpdateOrgSettingsRequestSchema = z.object({
   aiBudgetUsd: z.number().min(0).max(1_000_000)
 });
 
+export const InviteMemberRequestSchema = z.object({
+  email: z.string().trim().email(),
+  name: z.string().trim().min(1).max(120).optional(),
+  role: z.enum(["admin", "manager", "agent"]).default("agent"),
+  temporaryPassword: z.string().min(8).max(128).optional()
+});
+
+export const UpdateMemberRoleRequestSchema = z.object({
+  role: z.enum(["admin", "manager", "agent"])
+});
+
 export const MeResponseSchema = z.object({
   data: z.object({
     user: z.object({

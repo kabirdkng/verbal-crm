@@ -37,6 +37,13 @@ export interface IdentityRepository {
   listMembers(organizationId: string): Promise<
     Array<MembershipRecord & { email: string; name: string }>
   >;
+  updateMembershipRole(
+    organizationId: string,
+    membershipId: string,
+    role: Role
+  ): Promise<MembershipRecord | null>;
+  deleteMembership(organizationId: string, membershipId: string): Promise<boolean>;
+  listOrganizationsByIds(ids: string[]): Promise<OrganizationRecord[]>;
 }
 
 export class InMemoryIdentityRepository implements IdentityRepository {
@@ -168,5 +175,33 @@ export class InMemoryIdentityRepository implements IdentityRepository {
         name: user?.name ?? "Unknown"
       };
     });
+  }
+
+  async updateMembershipRole(
+    organizationId: string,
+    membershipId: string,
+    role: Role
+  ): Promise<MembershipRecord | null> {
+    const membership = getStore().memberships.find(
+      (item) => item.id === membershipId && item.organizationId === organizationId
+    );
+    if (!membership) {
+      return null;
+    }
+    membership.role = role;
+    return membership;
+  }
+
+  async deleteMembership(organizationId: string, membershipId: string): Promise<boolean> {
+    const store = getStore();
+    const before = store.memberships.length;
+    store.memberships = store.memberships.filter(
+      (item) => !(item.id === membershipId && item.organizationId === organizationId)
+    );
+    return store.memberships.length < before;
+  }
+
+  async listOrganizationsByIds(ids: string[]): Promise<OrganizationRecord[]> {
+    return getStore().organizations.filter((org) => ids.includes(org.id));
   }
 }

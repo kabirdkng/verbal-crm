@@ -7,6 +7,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const result = await contactsController.get(request.headers);
+  const result = await contactsController.get(request.headers, request.nextUrl.searchParams);
   return NextResponse.json(result.body, { status: result.status });
 }

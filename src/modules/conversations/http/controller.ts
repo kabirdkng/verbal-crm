@@ -33,10 +33,14 @@ export class ConversationsController {
     }
   }
 
-  async get(headers: HeaderReader): Promise<JsonResponse> {
+  async get(headers: HeaderReader, searchParams?: URLSearchParams): Promise<JsonResponse> {
     try {
       return await withTenantAuth(headers, async (context) => {
-        const conversations = await this.service.listForOrganization(context);
+        const conversations = await this.service.listForOrganization(context, {
+          status: searchParams?.get("status") ?? undefined,
+          assigned: (searchParams?.get("assigned") as "me" | "unassigned" | "any" | null) ?? undefined,
+          q: searchParams?.get("q") ?? undefined
+        });
         const body = ListConversationsResponseSchema.parse({ data: conversations });
         return { status: 200, body };
       });

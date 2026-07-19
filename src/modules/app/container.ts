@@ -50,6 +50,8 @@ import { WhatsAppIngestService } from "@/modules/whatsapp/ingest.service";
 import { InMemoryWebhookEventsRepository } from "@/modules/whatsapp/repository";
 import { PrismaWebhookEventsRepository } from "@/modules/whatsapp/repository.prisma";
 import { WhatsAppInboundWorker } from "@/modules/whatsapp/worker";
+import { ExportController } from "@/modules/export/http/controller";
+import { ExportService } from "@/modules/export/service";
 
 const persistence = getPersistenceMode();
 const queueMode = getQueueMode();
@@ -178,6 +180,17 @@ export const whatsAppWebhookController = new WhatsAppWebhookController(
 );
 export const aiController = new AiController(aiService);
 export const auditController = new AuditController(auditLogger);
+
+const exportService = new ExportService(
+  contactsRepository,
+  conversationsRepository,
+  messagesRepository,
+  notesRepository,
+  templatesRepository,
+  aiUsageRepository,
+  auditLogger
+);
+export const exportController = new ExportController(exportService);
 
 export const appContainer = {
   persistence,

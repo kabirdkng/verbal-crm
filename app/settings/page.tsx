@@ -131,13 +131,46 @@ export default function SettingsPage() {
     }
   }
 
+  async function exportData() {
+    setError(null);
+    try {
+      const result = await apiFetch<{ data: unknown }>("/api/v1/org/export", session);
+      const blob = new Blob([JSON.stringify(result.data, null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `verbal-crm-export-${session.organizationId}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed");
+    }
+  }
+
+  async function toggleFlag(key: string, enabled: boolean) {
+    setError(null);
+    try {
+      await apiFetch("/api/v1/flags", session, {
+        method: "PATCH",
+        body: JSON.stringify({ key, enabled })
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Flag update failed");
+    }
+  }
+
   return (
     <div>
       <header className="page-header">
         <div>
           <h1>Settings</h1>
-          <p>Templates, AI usage metering, and recent audit events.</p>
+          <p>Templates, AI usage, export, flags, and audit.</p>
         </div>
+        <button className="btn" type="button" onClick={() => void exportData()}>
+          Export org data
+        </button>
       </header>
 
       {error ? <div className="error-banner" style={{ marginBottom: "1rem" }}>{error}</div> : null}
@@ -291,6 +324,37 @@ export default function SettingsPage() {
             ) : (
               <div className="empty">AI usage requires admin/manager role.</div>
             )}
+          </section>
+
+          <section className="card stack">
+            <h2 style={{ margin: 0 }}>Feature flags</h2>
+            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+              Admin can toggle global flags (broadcasts, automations, analytics, realtime).
+            </p>
+            <div className="row">
+              {["broadcasts", "automations", "analytics", "realtime"].map((key) => (
+                <button
+                  key={key}
+                  className="btn"
+                  type="button"
+                  onClick={() => void toggleFlag(key, true)}
+                >
+                  Enable {key}
+                </button>
+              ))}
+            </div>
+            <div className="row">
+              {["broadcasts", "automations", "analytics", "realtime"].map((key) => (
+                <button
+                  key={`off-${key}`}
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => void toggleFlag(key, false)}
+                >
+                  Disable {key}
+                </button>
+              ))}
+            </div>
           </section>
 
           <section className="card stack">

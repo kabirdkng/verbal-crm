@@ -174,4 +174,63 @@ export class IdentityController {
       return toErrorEnvelope(error);
     }
   }
+
+  async inviteMember(request: JsonRequest): Promise<JsonResponse> {
+    try {
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const result = await this.service.inviteMember(context, payload);
+        return { status: 201, body: { data: result } };
+      });
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
+
+  async updateMember(
+    request: JsonRequest,
+    membershipId: string
+  ): Promise<JsonResponse> {
+    try {
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const updated = await this.service.updateMemberRole(context, membershipId, payload);
+        return {
+          status: 200,
+          body: {
+            data: {
+              id: updated.id,
+              userId: updated.userId,
+              role: updated.role,
+              organizationId: updated.organizationId
+            }
+          }
+        };
+      });
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
+
+  async removeMember(headers: HeaderReader, membershipId: string): Promise<JsonResponse> {
+    try {
+      return await withTenantAuth(headers, async (context) => {
+        await this.service.removeMember(context, membershipId);
+        return { status: 204, body: null };
+      });
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
+
+  async myOrganizations(headers: HeaderReader): Promise<JsonResponse> {
+    try {
+      return await withTenantAuth(headers, async (context) => {
+        const orgs = await this.service.listMyOrganizations(context);
+        return { status: 200, body: { data: orgs } };
+      });
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
 }

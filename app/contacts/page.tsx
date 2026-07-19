@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { apiFetch } from "@/ui/api-client";
 import { useSession } from "@/ui/session";
@@ -9,6 +10,7 @@ type Contact = {
   fullName: string;
   phone: string;
   email: string | null;
+  tags: string[];
   createdAt: string;
 };
 
@@ -18,6 +20,8 @@ export default function ContactsPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [tags, setTags] = useState("");
+  const [q, setQ] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -25,14 +29,17 @@ export default function ContactsPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiFetch<{ data: Contact[] }>("/api/v1/contacts", session);
+      const params = new URLSearchParams();
+      if (q.trim()) params.set("q", q.trim());
+      const path = params.size ? `/api/v1/contacts?${params}` : "/api/v1/contacts";
+      const result = await apiFetch<{ data: Contact[] }>(path, session);
       setContacts(result.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load contacts");
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, q]);
 
   useEffect(() => {
     void load();
@@ -47,12 +54,17 @@ export default function ContactsPage() {
         body: JSON.stringify({
           fullName,
           phone,
-          email: email || undefined
+          email: email || undefined,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
         })
       });
       setFullName("");
       setPhone("");
       setEmail("");
+      setTags("");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create contact");
@@ -70,6 +82,20 @@ export default function ContactsPage() {
 
       {error ? <div className="error-banner" style={{ marginBottom: "1rem" }}>{error}</div> : null}
 
+      <div className="row" style={{ marginBottom: "1rem" }}>
+        <input
+          className="input"
+          style={{ maxWidth: 320 }}
+          placeholder="Search name, phone, email…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          aria-label="Search contacts"
+        />
+        <button className="btn" type="button" onClick={() => void load()}>
+          Search
+        </button>
+      </div>
+
       <div className="grid-2">
         <section className="card">
           <h2 style={{ marginTop: 0 }}>Directory</h2>
@@ -83,15 +109,17 @@ export default function ContactsPage() {
                 <tr>
                   <th>Name</th>
                   <th>Phone</th>
-                  <th>Email</th>
+                  <th>Tags</th>
                 </tr>
               </thead>
               <tbody>
                 {contacts.map((contact) => (
                   <tr key={contact.id}>
-                    <td>{contact.fullName}</td>
+                    <td>
+                      <Link href={`/contacts/${contact.id}`}>{contact.fullName}</Link>
+                    </td>
                     <td>{contact.phone}</td>
-                    <td className="muted">{contact.email ?? "—"}</td>
+                    <td className="muted">{(contact.tags ?? []).join(", ") || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -130,12 +158,18 @@ export default function ContactsPage() {
                 onChange={(event) => setEmail(event.target.value)}
               />
             </label>
+            <label className="label">
+              Tags (comma-separated)
+              <input
+                className="input"
+                placeholder="vip, billing"
+                value={tags}
+                onChange={(event) => setTags(event.target.value)}
+              />
+            </label>
             <button className="btn btn-primary" type="submit">
               Create contact
             </button>
-            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-              Agents can view contacts; only admin/manager can create.
-            </p>
           </form>
         </section>
       </div>

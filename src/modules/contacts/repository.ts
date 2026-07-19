@@ -11,6 +11,13 @@ export type CreateContactInput = {
   tags?: string[];
 };
 
+export type UpdateContactInput = {
+  fullName?: string;
+  phone?: string;
+  email?: string | null;
+  tags?: string[];
+};
+
 export interface ContactsRepository {
   create(input: CreateContactInput): Promise<Contact>;
   listByOrganization(organizationId: string): Promise<Contact[]>;
@@ -21,6 +28,12 @@ export interface ContactsRepository {
     phone: string,
     fullName?: string
   ): Promise<Contact>;
+  update(
+    organizationId: string,
+    contactId: string,
+    input: UpdateContactInput
+  ): Promise<Contact | null>;
+  delete(organizationId: string, contactId: string): Promise<boolean>;
 }
 
 function toDomain(record: ContactRecord): Contact {
@@ -88,5 +101,33 @@ export class InMemoryContactsRepository implements ContactsRepository {
       fullName: fullName?.trim() || `WhatsApp ${normalizePhone(phone)}`,
       phone
     });
+  }
+
+  async update(
+    organizationId: string,
+    contactId: string,
+    input: UpdateContactInput
+  ): Promise<Contact | null> {
+    const record = getStore().contacts.find(
+      (item) => item.id === contactId && item.organizationId === organizationId
+    );
+    if (!record) {
+      return null;
+    }
+    if (input.fullName !== undefined) record.fullName = input.fullName;
+    if (input.phone !== undefined) record.phone = normalizePhone(input.phone);
+    if (input.email !== undefined) record.email = input.email;
+    if (input.tags !== undefined) record.tags = input.tags;
+    record.updatedAt = new Date();
+    return toDomain(record);
+  }
+
+  async delete(organizationId: string, contactId: string): Promise<boolean> {
+    const store = getStore();
+    const before = store.contacts.length;
+    store.contacts = store.contacts.filter(
+      (item) => !(item.id === contactId && item.organizationId === organizationId)
+    );
+    return store.contacts.length < before;
   }
 }

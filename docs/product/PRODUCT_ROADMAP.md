@@ -1,32 +1,50 @@
 # Verbal CRM Product Roadmap
 
-## Phase 1 — Foundation (DONE)
-Contacts, conversations, WhatsApp ingest, templates, AI metering, audit, dashboard, header auth.
+## Phase 1 — Foundation ✅
+Contacts, conversations, WhatsApp ingest, templates, AI metering, audit, dashboard.
 
-## Phase 2 — Identity & persistence
-- Organizations, users, memberships (RBAC)
-- Cookie session auth (login/register/logout)
-- Prisma schema + RLS SQL (Postgres-ready); runtime still dual-mode memory default
-- Org settings (AI budget, WhatsApp defaults)
+## Phase 2 — Identity & persistence ✅
+Orgs, users, memberships, sessions, Prisma dual-mode, org AI budget.
 
-## Phase 3 — CRM operations
-- Contact notes
-- Conversation assignment
-- Broadcast campaigns (template outbound to audience)
-- Inbound automation rules (keyword → template reply)
+## Phase 3 — CRM operations ✅
+Notes, assignment, broadcasts, automations (API + base UI).
 
-## Phase 4 — Insights & realtime
-- Server-Sent Events for domain event stream
-- Analytics (messages, conversations, AI cost)
-- Billing/usage dashboard surfaces
-- Org AI budget configuration API/UI
+## Phase 4 — Insights & realtime ✅
+Analytics, SSE, budget UI.
 
-## Phase 5 — Production hardening
-- Per-tenant rate limiting
-- Feature flags
-- Worker drain endpoint (secret-protected)
-- Production runbook, env matrix, residual risk closure
-- Full memory + changelog + release pack
+## Phase 5 — Production hardening ✅
+Rate limits, flags, worker drain, release pack.
 
-## Definition of fully done
-All phases 1–5 shipped with tests green, docs/memory updated, and git history per phase.
+## Platform track (parallel) ✅
+Docker Postgres/Redis, RLS, Meta WhatsApp, worker process, xAI, staging deploy pack.
+
+---
+
+## Phase 6 — CRM completeness (contacts & notes UX)
+- Contact update / delete API + UI
+- Contact detail page with notes CRUD UI
+- Tags edit on create/update
+
+## Phase 7 — Inbox completeness
+- Assign / unassign + status controls in conversation UI
+- Inbox filters: status, assigned-to-me, search
+- Clear empty/loading/error states
+
+## Phase 8 — Team & org admin
+- Invite member (email + role)
+- Update member role / remove member
+- Org switcher UI for multi-membership users
+
+## Phase 9 — Compliance, ops polish, quality gate
+- Org data export (JSON)
+- Feature flags admin UI
+- Structured request logging helper
+- Expanded automated tests + product complete definition
+- **No production cloud deploy in this phase** (pack only)
+
+## Deferred (post-complete / Phase 10+)
+- Stripe billing checkout
+- SSO/OAuth
+- Email/SMS channels
+- Playwright browser E2E
+- Advanced workflow builder / scheduled broadcasts

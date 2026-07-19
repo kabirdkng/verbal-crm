@@ -134,4 +134,40 @@ export class PrismaIdentityRepository implements IdentityRepository {
       name: row.user.name
     }));
   }
+
+  async updateMembershipRole(
+    organizationId: string,
+    membershipId: string,
+    role: Role
+  ): Promise<MembershipRecord | null> {
+    const existing = await getPrismaAdmin().membership.findFirst({
+      where: { id: membershipId, organizationId }
+    });
+    if (!existing) {
+      return null;
+    }
+    const row = await getPrismaAdmin().membership.update({
+      where: { id: membershipId },
+      data: { role }
+    });
+    return { ...row, role: row.role as Role };
+  }
+
+  async deleteMembership(organizationId: string, membershipId: string): Promise<boolean> {
+    const existing = await getPrismaAdmin().membership.findFirst({
+      where: { id: membershipId, organizationId }
+    });
+    if (!existing) {
+      return false;
+    }
+    await getPrismaAdmin().membership.delete({ where: { id: membershipId } });
+    return true;
+  }
+
+  async listOrganizationsByIds(ids: string[]): Promise<OrganizationRecord[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    return getPrismaAdmin().organization.findMany({ where: { id: { in: ids } } });
+  }
 }

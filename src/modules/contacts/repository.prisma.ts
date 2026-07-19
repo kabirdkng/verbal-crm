@@ -1,7 +1,11 @@
 import { normalizePhone } from "@/lib/phone";
 import { getDb } from "@/lib/prisma";
 import type { Contact } from "@/modules/contacts/domain";
-import type { ContactsRepository, CreateContactInput } from "@/modules/contacts/repository";
+import type {
+  ContactsRepository,
+  CreateContactInput,
+  UpdateContactInput
+} from "@/modules/contacts/repository";
 
 function toDomain(row: {
   id: string;
@@ -75,5 +79,35 @@ export class PrismaContactsRepository implements ContactsRepository {
       fullName: fullName?.trim() || `WhatsApp ${normalizePhone(phone)}`,
       phone
     });
+  }
+
+  async update(
+    organizationId: string,
+    contactId: string,
+    input: UpdateContactInput
+  ): Promise<Contact | null> {
+    const existing = await this.findById(organizationId, contactId);
+    if (!existing) {
+      return null;
+    }
+    const row = await getDb().contact.update({
+      where: { id: contactId },
+      data: {
+        fullName: input.fullName,
+        phone: input.phone !== undefined ? normalizePhone(input.phone) : undefined,
+        email: input.email === undefined ? undefined : input.email,
+        tags: input.tags
+      }
+    });
+    return toDomain(row);
+  }
+
+  async delete(organizationId: string, contactId: string): Promise<boolean> {
+    const existing = await this.findById(organizationId, contactId);
+    if (!existing) {
+      return false;
+    }
+    await getDb().contact.delete({ where: { id: contactId } });
+    return true;
   }
 }
