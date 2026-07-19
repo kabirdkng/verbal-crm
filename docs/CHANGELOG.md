@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 — WhatsApp background worker (2026-07-20)
+
+### Added
+- Standalone worker loop: `npm run worker` / `npm run worker:once`
+- Docker Compose `worker` profile + `Dockerfile.worker`
+- Redis optional blocking pop for efficient idle waits
+- Enhanced drain API response (completed/failed/batch stats)
+- ADR-008 worker operations guide
+
 ## 1.3.0 — Real WhatsApp Meta Cloud API (2026-07-20)
 
 ### Added

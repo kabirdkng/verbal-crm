@@ -23,6 +23,8 @@ npm run db:grant-app-role  # once: create verbal_app (RLS-enforced role)
 cp .env.docker .env.local  # app=verbal_app, admin=verbal
 npm run db:setup           # migrate + seed as admin
 npm run dev                # app uses Postgres RLS + Redis queue
+# optional separate terminal:
+npm run worker             # process WhatsApp queue (recommended with INLINE_DRAIN=false)
 ```
 
 Open [http://localhost:3000](http://localhost:3000).

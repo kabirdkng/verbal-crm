@@ -1,6 +1,6 @@
 {
   "name": "verbal-crm",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,11 +9,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "worker": "tsx scripts/worker.ts",
+    "worker:once": "tsx scripts/worker.ts --once",
     "docker:up": "docker compose up -d postgres redis",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f postgres redis",
     "docker:reset": "docker compose down -v && docker compose up -d postgres redis",
     "docker:app": "docker compose --profile app up --build",
+    "docker:worker": "docker compose --profile worker up --build -d worker",
+    "docker:stack": "docker compose --profile app --profile worker up --build -d",
     "db:generate": "prisma generate",
     "db:migrate": "node scripts/with-admin-db.mjs migrate",
     "db:migrate:deploy": "node scripts/with-admin-db.mjs migrate:deploy",

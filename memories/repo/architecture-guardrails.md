@@ -11,4 +11,6 @@
 - **Worker**: WhatsApp inbound `runWithTenant(organizationId, ...)`
 - Superuser always bypasses RLS — never point app `DATABASE_URL` at `verbal`
 - WhatsApp: `WHATSAPP_MODE=mock|meta`; production requires signature; map `phone_number_id` → org; webhook is ack-and-enqueue (no inline drain in prod)
+- Worker: `npm run worker` / Docker profile `worker` drains Redis queue; HTTP `/api/v1/workers/drain` for cron
+
 

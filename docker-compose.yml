@@ -46,11 +46,39 @@ services:
     env_file:
       - .env.docker
     environment:
-      DATABASE_URL: postgresql://verbal:verbal@postgres:5432/verbal_crm?schema=public
+      DATABASE_URL: postgresql://verbal_app:verbal@postgres:5432/verbal_crm?schema=public
+      DATABASE_URL_ADMIN: postgresql://verbal:verbal@postgres:5432/verbal_crm?schema=public
       REDIS_URL: redis://redis:6379
       PERSISTENCE_MODE: postgres
       QUEUE_MODE: redis
+      WHATSAPP_INLINE_DRAIN: "false"
       AUTH_ALLOW_HEADERS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Long-running WhatsApp queue worker (use: docker compose --profile worker up)
+  worker:
+    profiles: ["worker"]
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: verbal-crm-worker
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgresql://verbal_app:verbal@postgres:5432/verbal_crm?schema=public
+      DATABASE_URL_ADMIN: postgresql://verbal:verbal@postgres:5432/verbal_crm?schema=public
+      REDIS_URL: redis://redis:6379
+      PERSISTENCE_MODE: postgres
+      QUEUE_MODE: redis
+      WHATSAPP_INLINE_DRAIN: "false"
+      WORKER_POLL_INTERVAL_MS: "1000"
+      WORKER_BATCH_SIZE: "50"
+      WORKER_BLOCKING_POP_SECONDS: "5"
     depends_on:
       postgres:
         condition: service_healthy

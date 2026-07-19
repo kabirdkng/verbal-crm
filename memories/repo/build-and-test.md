@@ -7,11 +7,15 @@ npm run db:grant-app-role   # once per volume
 cp .env.docker .env.local
 npm run db:setup            # admin migrate + seed
 npm run dev                 # app uses verbal_app + RLS
+npm run worker              # WhatsApp queue consumer (separate terminal)
+# npm run worker:once       # cron-style one-shot
+# npm run docker:worker     # containerized worker
 
-npm test                    # 22 unit (memory)
-npm run test:integration    # 6 tests (Postgres + RLS)
+npm test                    # unit (memory)
+npm run test:integration    # Postgres + RLS
 npm run build
 ```
+
 
 ## Credentials
 - Demo: admin@demo.local / demo-password

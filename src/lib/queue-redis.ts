@@ -39,7 +39,15 @@ export class RedisJobQueue implements JobQueue {
       await redis.connect().catch(() => undefined);
     }
 
-    const jobId = await redis.lpop(QUEUE_KEY);
+    // Prefer blocking pop when WORKER_BLOCKING_POP_SECONDS > 0 (long-running worker).
+    const blockSeconds = Number(process.env.WORKER_BLOCKING_POP_SECONDS ?? "0");
+    let jobId: string | null = null;
+    if (blockSeconds > 0) {
+      const blocked = await redis.blpop(QUEUE_KEY, blockSeconds);
+      jobId = blocked?.[1] ?? null;
+    } else {
+      jobId = await redis.lpop(QUEUE_KEY);
+    }
     if (!jobId) {
       return null;
     }

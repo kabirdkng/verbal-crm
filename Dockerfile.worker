@@ -1,0 +1,19 @@
+# Lightweight long-running WhatsApp queue worker
+FROM node:22-alpine
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY prisma ./prisma
+COPY tsconfig.json ./
+COPY src ./src
+COPY scripts ./scripts
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN npx prisma generate
+
+# Continuous worker loop (set WORKER_ONCE=true for cron-style one-shot)
+CMD ["npx", "tsx", "scripts/worker.ts"]

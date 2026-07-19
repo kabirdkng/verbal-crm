@@ -102,3 +102,40 @@ Worker drain (prod): `POST /api/v1/workers/drain` with `x-worker-secret`.
 
 See `docs/architecture/ADR-007-WHATSAPP-META.md`.
 
+## WhatsApp worker
+
+Process the queue outside the webhook request path:
+
+```bash
+# Continuous (local)
+npm run worker
+
+# One-shot (cron)
+npm run worker:once
+
+# Docker
+npm run docker:worker
+# or full stack:
+npm run docker:stack
+```
+
+Recommended production env:
+
+```bash
+WHATSAPP_INLINE_DRAIN=false
+QUEUE_MODE=redis
+WORKER_BATCH_SIZE=50
+WORKER_POLL_INTERVAL_MS=1000
+WORKER_BLOCKING_POP_SECONDS=5
+```
+
+HTTP alternative (serverless cron):
+
+```bash
+curl -X POST http://localhost:3000/api/v1/workers/drain \
+  -H "x-worker-secret: $WORKER_DRAIN_SECRET"
+```
+
+See `docs/architecture/ADR-008-WHATSAPP-WORKER.md`.
+
+
