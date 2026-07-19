@@ -10,6 +10,7 @@ import type { AiUsageRepository } from "@/modules/ai/repository";
 import type { ContactsRepository } from "@/modules/contacts/repository";
 import type { ConversationsRepository } from "@/modules/conversations/repository";
 import type { MessagesRepository } from "@/modules/messages/repository";
+import type { IdentityRepository } from "@/modules/identity/repository";
 
 const DEFAULT_BUDGET_USD = Number(process.env.AI_ORG_BUDGET_USD ?? "10");
 
@@ -21,7 +22,8 @@ export class AiService {
     private readonly messagesRepository: MessagesRepository,
     private readonly contactsRepository: ContactsRepository,
     private readonly auditLogger: AuditLogger,
-    private readonly budgetUsd: number = DEFAULT_BUDGET_USD
+    private readonly budgetUsd: number = DEFAULT_BUDGET_USD,
+    private readonly identityRepository?: IdentityRepository
   ) {}
 
   async suggestReply(
@@ -47,7 +49,11 @@ export class AiService {
     const totalCost = await this.usageRepository.totalCostByOrganization(
       context.organizationId
     );
-    if (totalCost >= this.budgetUsd) {
+    const org = this.identityRepository
+      ? await this.identityRepository.findOrganization(context.organizationId)
+      : null;
+    const budget = org?.aiBudgetUsd ?? this.budgetUsd;
+    if (totalCost >= budget) {
       throw new AppError("FORBIDDEN", 403, "Organization AI budget exceeded");
     }
 

@@ -43,6 +43,10 @@ export default function SettingsPage() {
   const [name, setName] = useState("order_update");
   const [body, setBody] = useState("Hi, here is an update on your request.");
   const [status, setStatus] = useState("approved");
+  const [aiBudgetUsd, setAiBudgetUsd] = useState("10");
+  const [members, setMembers] = useState<Array<{ name: string; email: string; role: string }>>(
+    []
+  );
 
   const load = useCallback(async () => {
     setError(null);
@@ -52,6 +56,16 @@ export default function SettingsPage() {
         session
       );
       setTemplates(templatesResult.data);
+
+      try {
+        const me = await apiFetch<{ data: { organization: { aiBudgetUsd: number } } }>(
+          "/api/v1/auth/me",
+          session
+        );
+        setAiBudgetUsd(String(me.data.organization.aiBudgetUsd));
+      } catch {
+        // header demo without seeded org membership may 401 cookie me — ignore
+      }
 
       try {
         const usageResult = await apiFetch<{ data: Usage }>("/api/v1/ai/usage", session);
@@ -65,6 +79,15 @@ export default function SettingsPage() {
         setAudit(auditResult.data.slice(-15).reverse());
       } catch {
         setAudit([]);
+      }
+
+      try {
+        const membersResult = await apiFetch<{
+          data: Array<{ name: string; email: string; role: string }>;
+        }>("/api/v1/org/members", session);
+        setMembers(membersResult.data);
+      } catch {
+        setMembers([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load settings");
@@ -91,6 +114,20 @@ export default function SettingsPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create template");
+    }
+  }
+
+  async function saveBudget(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      await apiFetch("/api/v1/org/settings", session, {
+        method: "PATCH",
+        body: JSON.stringify({ aiBudgetUsd: Number(aiBudgetUsd) })
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update budget");
     }
   }
 
@@ -177,6 +214,38 @@ export default function SettingsPage() {
         </section>
 
         <div className="stack">
+          <section className="card stack">
+            <h2 style={{ margin: 0 }}>Organization AI budget</h2>
+            <form className="stack" onSubmit={saveBudget}>
+              <label className="label">
+                Budget (USD)
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={aiBudgetUsd}
+                  onChange={(e) => setAiBudgetUsd(e.target.value)}
+                />
+              </label>
+              <button className="btn" type="submit">
+                Save budget
+              </button>
+            </form>
+            {members.length > 0 ? (
+              <div>
+                <h3 style={{ marginBottom: "0.5rem" }}>Members</h3>
+                <ul className="muted">
+                  {members.map((member) => (
+                    <li key={member.email}>
+                      {member.name} · {member.email} · {member.role}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+
           <section className="card stack">
             <h2 style={{ margin: 0 }}>AI usage</h2>
             {usage ? (

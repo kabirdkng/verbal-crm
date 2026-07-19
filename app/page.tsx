@@ -5,15 +5,17 @@ import Link from "next/link";
 import { apiFetch } from "@/ui/api-client";
 import { useSession } from "@/ui/session";
 
-type Counts = {
+type Overview = {
   contacts: number;
   conversations: number;
-  templates: number;
+  openConversations: number;
+  messages: { total: number; inbound: number; outbound: number };
+  ai: { calls: number; estimatedCostUsd: number };
 };
 
 export default function HomePage() {
-  const { session } = useSession();
-  const [counts, setCounts] = useState<Counts>({ contacts: 0, conversations: 0, templates: 0 });
+  const { session, authenticated } = useSession();
+  const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,17 +23,9 @@ export default function HomePage() {
     async function load() {
       try {
         setError(null);
-        const [contacts, conversations, templates] = await Promise.all([
-          apiFetch<{ data: unknown[] }>("/api/v1/contacts", session),
-          apiFetch<{ data: unknown[] }>("/api/v1/conversations", session),
-          apiFetch<{ data: unknown[] }>("/api/v1/templates", session)
-        ]);
+        const result = await apiFetch<{ data: Overview }>("/api/v1/analytics/overview", session);
         if (!cancelled) {
-          setCounts({
-            contacts: contacts.data.length,
-            conversations: conversations.data.length,
-            templates: templates.data.length
-          });
+          setData(result.data);
         }
       } catch (err) {
         if (!cancelled) {
@@ -50,11 +44,21 @@ export default function HomePage() {
       <header className="page-header">
         <div>
           <h1>Overview</h1>
-          <p>Tenant-safe contacts, WhatsApp inbox, templates, and AI assist.</p>
+          <p>
+            Full platform (Phases 1–5): identity, CRM ops, broadcasts, automations, analytics,
+            realtime, production hardening.
+          </p>
         </div>
-        <Link className="btn btn-primary" href="/inbox">
-          Open inbox
-        </Link>
+        <div className="row">
+          <Link className="btn btn-primary" href="/inbox">
+            Open inbox
+          </Link>
+          {!authenticated ? (
+            <Link className="btn" href="/login">
+              Sign in
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {error ? <div className="error-banner">{error}</div> : null}
@@ -62,46 +66,56 @@ export default function HomePage() {
       <div className="stats" style={{ marginBottom: "1rem" }}>
         <div className="stat">
           <span className="muted">Contacts</span>
-          <strong>{counts.contacts}</strong>
+          <strong>{data?.contacts ?? "—"}</strong>
         </div>
         <div className="stat">
-          <span className="muted">Conversations</span>
-          <strong>{counts.conversations}</strong>
+          <span className="muted">Open conversations</span>
+          <strong>{data?.openConversations ?? "—"}</strong>
         </div>
         <div className="stat">
-          <span className="muted">Templates</span>
-          <strong>{counts.templates}</strong>
+          <span className="muted">Messages</span>
+          <strong>{data?.messages.total ?? "—"}</strong>
+        </div>
+        <div className="stat">
+          <span className="muted">AI cost</span>
+          <strong>{data ? `$${data.ai.estimatedCostUsd.toFixed(4)}` : "—"}</strong>
         </div>
       </div>
 
       <div className="grid-2">
         <section className="card stack">
-          <h2 style={{ margin: 0 }}>Phase 1 capabilities</h2>
+          <h2 style={{ margin: 0 }}>Platform capabilities</h2>
           <ul className="muted">
-            <li>RBAC-protected REST API under `/api/v1`</li>
-            <li>Organization-scoped contacts and conversations</li>
-            <li>Idempotent WhatsApp webhook ingestion + queue worker</li>
-            <li>24-hour service window with approved templates</li>
-            <li>AI reply suggestions with usage metering</li>
-            <li>Audit trail for sensitive actions</li>
+            <li>Session auth + demo header auth for tools</li>
+            <li>Contacts, notes, inbox, assignment</li>
+            <li>Idempotent WhatsApp webhooks + automations</li>
+            <li>Broadcasts, templates, 24h service window</li>
+            <li>AI suggest-reply with org budget metering</li>
+            <li>Analytics, SSE events, feature flags, worker drain</li>
           </ul>
         </section>
         <section className="card stack">
-          <h2 style={{ margin: 0 }}>Quick start</h2>
-          <ol className="muted">
-            <li>Create a contact under Contacts</li>
-            <li>Open a conversation from Inbox or simulate a webhook</li>
-            <li>Reply free-form (in window) or with a template</li>
-            <li>Use AI Suggest for a draft reply</li>
-          </ol>
+          <h2 style={{ margin: 0 }}>Quick links</h2>
           <div className="row">
             <Link className="btn" href="/contacts">
-              Manage contacts
+              Contacts
+            </Link>
+            <Link className="btn" href="/broadcasts">
+              Broadcasts
+            </Link>
+            <Link className="btn" href="/automations">
+              Automations
+            </Link>
+            <Link className="btn" href="/analytics">
+              Analytics
             </Link>
             <Link className="btn" href="/settings">
-              Templates & usage
+              Settings
             </Link>
           </div>
+          <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+            Demo login: admin@demo.local / demo-password
+          </p>
         </section>
       </div>
     </div>
