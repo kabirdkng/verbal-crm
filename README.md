@@ -12,10 +12,16 @@ Multi-tenant, AI-first customer communication platform — **Phases 1–5 comple
 | 4 | Analytics, SSE realtime, org AI budget |
 | 5 | Rate limits, feature flags, worker drain, production pack |
 
-## Quick start
+## Quick start (Docker local — recommended)
+
+Requires Docker Desktop running.
 
 ```bash
 npm install
+npm run docker:up          # Postgres + Redis
+cp .env.docker .env.local  # PERSISTENCE_MODE=postgres, QUEUE_MODE=redis
+npm run db:migrate         # apply Prisma migrations
+npm run db:seed            # demo org/user/templates
 npm run dev
 ```
 
@@ -24,8 +30,19 @@ Open [http://localhost:3000](http://localhost:3000).
 **Demo login:** `admin@demo.local` / `demo-password`
 
 ```bash
-npm test
+npm test                   # unit tests (memory mode)
+npm run test:integration   # Postgres integration (Docker up + .env.local)
 npm run build
+```
+
+Full Docker guide: [`docs/DOCKER.md`](docs/DOCKER.md)
+
+### Memory-only (no Docker)
+
+```bash
+npm install
+# leave PERSISTENCE_MODE unset or =memory
+npm run dev
 ```
 
 ## Architecture
@@ -34,8 +51,9 @@ npm run build
 Route → Controller → Service → Repository / Adapter
 ```
 
-- Default runtime: in-memory store (zero-config)
-- Production path: `prisma/schema.prisma` + `prisma/rls.sql` on Neon
+- Local Docker: Postgres + Redis via `docker compose`
+- Modes: `PERSISTENCE_MODE=memory|postgres`, `QUEUE_MODE=memory|redis`
+- Prisma schema/migrations + `prisma/rls.sql` for Neon production
 - Agents/skills: `.github/agents`, `.github/skills`
 - Memory: `memories/repo/`
 - Docs: `docs/product`, `docs/architecture`, `docs/release`

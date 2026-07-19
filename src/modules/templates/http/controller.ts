@@ -21,7 +21,7 @@ export class TemplatesController {
 
   async post(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(request.headers);
+      const context = await getAuthContext(request.headers);
       const payload = await request.json();
       const created = await this.service.create(context, payload);
       const body = CreateTemplateResponseSchema.parse({ data: created });
@@ -33,7 +33,7 @@ export class TemplatesController {
 
   async get(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       const templates = await this.service.listForOrganization(context);
       const body = ListTemplatesResponseSchema.parse({ data: templates });
       return { status: 200, body };

@@ -21,7 +21,7 @@ export class MessagesController {
 
   async list(headers: HeaderReader, conversationId: string): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       const messages = await this.service.listForConversation(context, conversationId);
       const body = ListMessagesResponseSchema.parse({ data: messages });
       return { status: 200, body };
@@ -35,7 +35,7 @@ export class MessagesController {
     conversationId: string
   ): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(request.headers);
+      const context = await getAuthContext(request.headers);
       const payload = await request.json();
       const message = await this.service.sendOutbound(context, conversationId, payload);
       const body = SendMessageResponseSchema.parse({ data: message });

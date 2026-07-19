@@ -68,7 +68,7 @@ export class IdentityController {
 
   async logout(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       await this.service.logout(context.sessionId);
       return {
         status: 200,
@@ -86,7 +86,7 @@ export class IdentityController {
 
   async me(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       const me = await this.service.me(context);
       const body = MeResponseSchema.parse({ data: me });
       return { status: 200, body };
@@ -97,7 +97,7 @@ export class IdentityController {
 
   async switchOrg(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(request.headers);
+      const context = await getAuthContext(request.headers);
       const payload = await request.json();
       const result = await this.service.switchOrganization(context, payload);
       return {
@@ -117,7 +117,7 @@ export class IdentityController {
 
   async updateSettings(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(request.headers);
+      const context = await getAuthContext(request.headers);
       const payload = await request.json();
       const org = await this.service.updateSettings(context, payload);
       return {
@@ -138,7 +138,7 @@ export class IdentityController {
 
   async members(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       const members = await this.service.listMembers(context);
       return {
         status: 200,

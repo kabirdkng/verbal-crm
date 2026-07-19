@@ -1,11 +1,15 @@
 import { InMemoryAuditLogger } from "@/lib/audit";
+import { PrismaAuditLogger } from "@/lib/audit.prisma";
+import { getPersistenceMode, getQueueMode } from "@/lib/config";
 import { InMemoryEventBus } from "@/lib/events";
 import { InMemoryJobQueue } from "@/lib/queue";
+import { RedisJobQueue } from "@/lib/queue-redis";
 import { AnalyticsController } from "@/modules/analytics/http/controller";
 import { AnalyticsService } from "@/modules/analytics/service";
 import { AiController } from "@/modules/ai/http/controller";
 import { MockAiProvider } from "@/modules/ai/adapters/provider";
 import { InMemoryAiUsageRepository } from "@/modules/ai/repository";
+import { PrismaAiUsageRepository } from "@/modules/ai/repository.prisma";
 import { AiService } from "@/modules/ai/service";
 import { AuditController } from "@/modules/audit/http/controller";
 import { AutomationsController } from "@/modules/automations/http/controller";
@@ -14,44 +18,79 @@ import { BroadcastsController } from "@/modules/broadcasts/http/controller";
 import { BroadcastsService } from "@/modules/broadcasts/service";
 import { ContactsController } from "@/modules/contacts/http/controller";
 import { InMemoryContactsRepository } from "@/modules/contacts/repository";
+import { PrismaContactsRepository } from "@/modules/contacts/repository.prisma";
 import { ContactsService } from "@/modules/contacts/service";
 import { ConversationsController } from "@/modules/conversations/http/controller";
 import { InMemoryConversationsRepository } from "@/modules/conversations/repository";
+import { PrismaConversationsRepository } from "@/modules/conversations/repository.prisma";
 import { ConversationsService } from "@/modules/conversations/service";
 import { IdentityController } from "@/modules/identity/http/controller";
 import { InMemoryIdentityRepository } from "@/modules/identity/repository";
+import { PrismaIdentityRepository } from "@/modules/identity/repository.prisma";
 import { ensureDemoSeed } from "@/modules/identity/seed";
 import { IdentityService } from "@/modules/identity/service";
 import { MessagesController } from "@/modules/messages/http/controller";
 import { InMemoryMessagesRepository } from "@/modules/messages/repository";
+import { PrismaMessagesRepository } from "@/modules/messages/repository.prisma";
 import { MessagesService } from "@/modules/messages/service";
 import { NotesController } from "@/modules/notes/http/controller";
 import { InMemoryNotesRepository } from "@/modules/notes/repository";
+import { PrismaNotesRepository } from "@/modules/notes/repository.prisma";
 import { NotesService } from "@/modules/notes/service";
 import { TemplatesController } from "@/modules/templates/http/controller";
 import { InMemoryTemplatesRepository } from "@/modules/templates/repository";
+import { PrismaTemplatesRepository } from "@/modules/templates/repository.prisma";
 import { TemplatesService } from "@/modules/templates/service";
 import { MetaSignatureValidator } from "@/modules/whatsapp/adapters/signature";
 import { MockWhatsAppSender } from "@/modules/whatsapp/adapters/sender";
 import { WhatsAppWebhookController } from "@/modules/whatsapp/http/controller";
 import { WhatsAppIngestService } from "@/modules/whatsapp/ingest.service";
 import { InMemoryWebhookEventsRepository } from "@/modules/whatsapp/repository";
+import { PrismaWebhookEventsRepository } from "@/modules/whatsapp/repository.prisma";
 import { WhatsAppInboundWorker } from "@/modules/whatsapp/worker";
 
-ensureDemoSeed();
+const persistence = getPersistenceMode();
+const queueMode = getQueueMode();
 
-const auditLogger = new InMemoryAuditLogger();
+if (persistence === "memory") {
+  ensureDemoSeed();
+}
+
+const auditLogger =
+  persistence === "postgres" ? new PrismaAuditLogger() : new InMemoryAuditLogger();
 const eventBus = new InMemoryEventBus();
-const queue = new InMemoryJobQueue();
+const queue = queueMode === "redis" ? new RedisJobQueue() : new InMemoryJobQueue();
 
-const identityRepository = new InMemoryIdentityRepository();
-const contactsRepository = new InMemoryContactsRepository();
-const conversationsRepository = new InMemoryConversationsRepository();
-const messagesRepository = new InMemoryMessagesRepository();
-const templatesRepository = new InMemoryTemplatesRepository();
-const webhookEventsRepository = new InMemoryWebhookEventsRepository();
-const aiUsageRepository = new InMemoryAiUsageRepository();
-const notesRepository = new InMemoryNotesRepository();
+const identityRepository =
+  persistence === "postgres"
+    ? new PrismaIdentityRepository()
+    : new InMemoryIdentityRepository();
+const contactsRepository =
+  persistence === "postgres"
+    ? new PrismaContactsRepository()
+    : new InMemoryContactsRepository();
+const conversationsRepository =
+  persistence === "postgres"
+    ? new PrismaConversationsRepository()
+    : new InMemoryConversationsRepository();
+const messagesRepository =
+  persistence === "postgres"
+    ? new PrismaMessagesRepository()
+    : new InMemoryMessagesRepository();
+const templatesRepository =
+  persistence === "postgres"
+    ? new PrismaTemplatesRepository()
+    : new InMemoryTemplatesRepository();
+const webhookEventsRepository =
+  persistence === "postgres"
+    ? new PrismaWebhookEventsRepository()
+    : new InMemoryWebhookEventsRepository();
+const aiUsageRepository =
+  persistence === "postgres"
+    ? new PrismaAiUsageRepository()
+    : new InMemoryAiUsageRepository();
+const notesRepository =
+  persistence === "postgres" ? new PrismaNotesRepository() : new InMemoryNotesRepository();
 
 const whatsAppSender = new MockWhatsAppSender();
 const aiProvider = new MockAiProvider();
@@ -130,6 +169,8 @@ export const aiController = new AiController(aiService);
 export const auditController = new AuditController(auditLogger);
 
 export const appContainer = {
+  persistence,
+  queueMode,
   auditLogger,
   eventBus,
   queue,

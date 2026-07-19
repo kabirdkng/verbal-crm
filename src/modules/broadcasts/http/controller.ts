@@ -43,7 +43,7 @@ export class BroadcastsController {
 
   async list(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       const items = await this.service.list(context);
       return { status: 200, body: { data: items.map(toResponse) } };
     } catch (error) {
@@ -53,7 +53,7 @@ export class BroadcastsController {
 
   async create(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(request.headers);
+      const context = await getAuthContext(request.headers);
       const payload = await request.json();
       const broadcast = await this.service.createAndSend(context, payload);
       return { status: 201, body: { data: toResponse(broadcast) } };

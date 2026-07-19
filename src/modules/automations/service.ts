@@ -1,8 +1,10 @@
 import { requireAnyRole, type AuthContext } from "@/lib/auth";
 import type { AuditLogger } from "@/lib/audit";
+import { getPersistenceMode } from "@/lib/config";
 import { AppError } from "@/lib/errors";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { createId } from "@/lib/ids";
+import { getPrisma } from "@/lib/prisma";
 import { getStore, type AutomationRuleRecord } from "@/lib/store";
 import { z } from "zod";
 import type { TemplatesRepository } from "@/modules/templates/repository";
@@ -24,6 +26,12 @@ export class AutomationsService {
 
   async list(context: AuthContext) {
     requireAnyRole(context, ["admin", "manager", "agent"]);
+    if (getPersistenceMode() === "postgres") {
+      return getPrisma().automationRule.findMany({
+        where: { organizationId: context.organizationId },
+        orderBy: { createdAt: "desc" }
+      });
+    }
     return getStore().automationRules.filter(
       (rule) => rule.organizationId === context.organizationId
     );
@@ -53,16 +61,29 @@ export class AutomationsService {
       throw new AppError("NOT_FOUND", 404, "Approved template not found");
     }
 
-    const rule: AutomationRuleRecord = {
-      id: createId("auto"),
-      organizationId: context.organizationId,
-      name: parsed.data.name,
-      enabled: parsed.data.enabled ?? true,
-      matchKeyword: parsed.data.matchKeyword.toLowerCase(),
-      templateName: parsed.data.templateName,
-      createdAt: new Date()
-    };
-    getStore().automationRules.push(rule);
+    let rule: AutomationRuleRecord;
+    if (getPersistenceMode() === "postgres") {
+      rule = await getPrisma().automationRule.create({
+        data: {
+          organizationId: context.organizationId,
+          name: parsed.data.name,
+          enabled: parsed.data.enabled ?? true,
+          matchKeyword: parsed.data.matchKeyword.toLowerCase(),
+          templateName: parsed.data.templateName
+        }
+      });
+    } else {
+      rule = {
+        id: createId("auto"),
+        organizationId: context.organizationId,
+        name: parsed.data.name,
+        enabled: parsed.data.enabled ?? true,
+        matchKeyword: parsed.data.matchKeyword.toLowerCase(),
+        templateName: parsed.data.templateName,
+        createdAt: new Date()
+      };
+      getStore().automationRules.push(rule);
+    }
 
     await this.auditLogger.log({
       action: "automation.created",
@@ -76,10 +97,6 @@ export class AutomationsService {
     return rule;
   }
 
-  /**
-   * Fire matching keyword rules for an inbound message.
-   * Called from worker — never from webhook request path.
-   */
   async runForInbound(input: {
     organizationId: string;
     phone: string;
@@ -90,12 +107,18 @@ export class AutomationsService {
     }
 
     const body = input.body.toLowerCase();
-    const rules = getStore().automationRules.filter(
-      (rule) =>
-        rule.organizationId === input.organizationId &&
-        rule.enabled &&
-        body.includes(rule.matchKeyword)
-    );
+    let rules: AutomationRuleRecord[];
+    if (getPersistenceMode() === "postgres") {
+      rules = await getPrisma().automationRule.findMany({
+        where: { organizationId: input.organizationId, enabled: true }
+      });
+    } else {
+      rules = getStore().automationRules.filter(
+        (rule) => rule.organizationId === input.organizationId && rule.enabled
+      );
+    }
+
+    rules = rules.filter((rule) => body.includes(rule.matchKeyword));
 
     let fired = 0;
     for (const rule of rules) {

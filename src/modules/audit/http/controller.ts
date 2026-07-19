@@ -27,7 +27,7 @@ export class AuditController {
 
   async list(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       requireAnyRole(context, ["admin", "manager"]);
       const events = await this.auditLogger.listByOrganization(context.organizationId);
       const body = AuditListResponseSchema.parse({

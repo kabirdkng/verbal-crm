@@ -12,7 +12,7 @@ export class AnalyticsController {
 
   async overview(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       const data = await this.service.overview(context);
       return { status: 200, body: { data } };
     } catch (error) {

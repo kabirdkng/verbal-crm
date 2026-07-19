@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: verbal-crm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: verbal
+      POSTGRES_PASSWORD: verbal
+      POSTGRES_DB: verbal_crm
+    ports:
+      - "5432:5432"
+    volumes:
+      - verbal_crm_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U verbal -d verbal_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: verbal-crm-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - verbal_crm_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Optional full-stack app container (use: docker compose --profile app up)
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: verbal-crm-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgresql://verbal:verbal@postgres:5432/verbal_crm?schema=public
+      REDIS_URL: redis://redis:6379
+      PERSISTENCE_MODE: postgres
+      QUEUE_MODE: redis
+      AUTH_ALLOW_HEADERS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  verbal_crm_pg_data:
+  verbal_crm_redis_data:

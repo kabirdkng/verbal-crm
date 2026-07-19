@@ -17,7 +17,7 @@ export class NotesController {
 
   async list(headers: HeaderReader, contactId: string): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       const notes = await this.service.list(context, contactId);
       return {
         status: 200,
@@ -38,7 +38,7 @@ export class NotesController {
 
   async create(request: JsonRequest, contactId: string): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(request.headers);
+      const context = await getAuthContext(request.headers);
       const payload = await request.json();
       const note = await this.service.create(context, contactId, payload);
       return {

@@ -1,24 +1,45 @@
 {
   "name": "verbal-crm",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "docker:up": "docker compose up -d postgres redis",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f postgres redis",
+    "docker:reset": "docker compose down -v && docker compose up -d postgres redis",
+    "docker:app": "docker compose --profile app up --build",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "db:setup": "prisma migrate deploy && prisma db seed",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "ioredis": "^5.11.1",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/ioredis": "^4.28.10",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.1",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0 — Docker local infrastructure (2026-07-20)
+
+### Added
+- `docker-compose.yml` with Postgres 16 + Redis 7 (+ optional app profile)
+- Dockerfile for full-stack compose profile
+- Prisma migrations, seed, and Prisma repository adapters
+- Redis job queue (`QUEUE_MODE=redis`)
+- Dual mode: `PERSISTENCE_MODE=memory|postgres`
+- Integration test suite (`npm run test:integration`)
+- `docs/DOCKER.md` and npm scripts: `docker:*`, `db:*`
+
 ## 1.0.0 — Full platform Phases 1–5 (2026-07-20)
 
 ### Phase 2 — Identity & persistence

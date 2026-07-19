@@ -1,4 +1,6 @@
 import { AppError } from "@/lib/errors";
+import { getPersistenceMode } from "@/lib/config";
+import { getPrisma } from "@/lib/prisma";
 import { getStore } from "@/lib/store";
 
 export type Role = "admin" | "manager" | "agent";
@@ -39,19 +41,51 @@ export function allowHeaderAuth(): boolean {
   return true;
 }
 
-export function getAuthContext(headers: HeaderReader): AuthContext {
+function isRole(value: string): value is Role {
+  return value === "admin" || value === "manager" || value === "agent";
+}
+
+async function resolveSessionContext(sessionId: string): Promise<AuthContext | null> {
+  if (getPersistenceMode() === "postgres") {
+    const session = await getPrisma().session.findUnique({
+      where: { id: sessionId },
+      include: { user: true }
+    });
+    if (!session || session.expiresAt.getTime() <= Date.now()) {
+      return null;
+    }
+    if (!isRole(session.role)) {
+      return null;
+    }
+    return {
+      userId: session.userId,
+      organizationId: session.organizationId,
+      role: session.role,
+      sessionId: session.id,
+      email: session.user.email
+    };
+  }
+
+  const session = getStore().sessions.find((item) => item.id === sessionId);
+  if (!session || session.expiresAt.getTime() <= Date.now()) {
+    return null;
+  }
+  const user = getStore().users.find((item) => item.id === session.userId);
+  return {
+    userId: session.userId,
+    organizationId: session.organizationId,
+    role: session.role,
+    sessionId: session.id,
+    email: user?.email
+  };
+}
+
+export async function getAuthContext(headers: HeaderReader): Promise<AuthContext> {
   const sessionId = parseCookie(headers.get("cookie"), "verbal_session");
   if (sessionId) {
-    const session = getStore().sessions.find((item) => item.id === sessionId);
-    if (session && session.expiresAt.getTime() > Date.now()) {
-      const user = getStore().users.find((item) => item.id === session.userId);
-      return {
-        userId: session.userId,
-        organizationId: session.organizationId,
-        role: session.role,
-        sessionId: session.id,
-        email: user?.email
-      };
+    const fromSession = await resolveSessionContext(sessionId);
+    if (fromSession) {
+      return fromSession;
     }
   }
 
@@ -67,7 +101,7 @@ export function getAuthContext(headers: HeaderReader): AuthContext {
     throw new AppError("UNAUTHORIZED", 401, "Missing authentication headers");
   }
 
-  if (role !== "admin" && role !== "manager" && role !== "agent") {
+  if (!isRole(role)) {
     throw new AppError("FORBIDDEN", 403, "Invalid role");
   }
 

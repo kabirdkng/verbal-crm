@@ -21,7 +21,7 @@ export class AiController {
 
   async suggest(request: JsonRequest): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(request.headers);
+      const context = await getAuthContext(request.headers);
       const payload = await request.json();
       const result = await this.service.suggestReply(context, payload);
       const body = SuggestReplyResponseSchema.parse({ data: result });
@@ -33,7 +33,7 @@ export class AiController {
 
   async usage(headers: HeaderReader): Promise<JsonResponse> {
     try {
-      const context = getAuthContext(headers);
+      const context = await getAuthContext(headers);
       const result = await this.service.listUsage(context);
       const body = AiUsageResponseSchema.parse({ data: result });
       return { status: 200, body };

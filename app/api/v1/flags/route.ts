@@ -6,7 +6,7 @@ import { setFeatureFlag } from "@/lib/feature-flags";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const context = getAuthContext(request.headers);
+    const context = await getAuthContext(request.headers);
     requireAnyRole(context, ["admin", "manager"]);
     const flags = getStore().featureFlags.filter(
       (flag) => flag.organizationId === null || flag.organizationId === context.organizationId
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
   try {
-    const context = getAuthContext(request.headers);
+    const context = await getAuthContext(request.headers);
     requireAnyRole(context, ["admin"]);
     const payload = (await request.json()) as {
       key?: string;

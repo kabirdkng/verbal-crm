@@ -1,6 +1,8 @@
 import { requireAnyRole, type AuthContext } from "@/lib/auth";
+import { getPersistenceMode } from "@/lib/config";
 import { AppError } from "@/lib/errors";
 import { isFeatureEnabled } from "@/lib/feature-flags";
+import { getPrisma } from "@/lib/prisma";
 import { getStore } from "@/lib/store";
 
 export class AnalyticsService {
@@ -11,8 +13,46 @@ export class AnalyticsService {
     }
 
     const orgId = context.organizationId;
-    const store = getStore();
 
+    if (getPersistenceMode() === "postgres") {
+      const prisma = getPrisma();
+      const [contacts, conversations, openConversations, messages, inbound, outbound, ai, broadcasts] =
+        await Promise.all([
+          prisma.contact.count({ where: { organizationId: orgId } }),
+          prisma.conversation.count({ where: { organizationId: orgId } }),
+          prisma.conversation.count({ where: { organizationId: orgId, status: "open" } }),
+          prisma.message.count({ where: { organizationId: orgId } }),
+          prisma.message.count({ where: { organizationId: orgId, direction: "inbound" } }),
+          prisma.message.count({ where: { organizationId: orgId, direction: "outbound" } }),
+          prisma.aiUsage.aggregate({
+            where: { organizationId: orgId },
+            _count: true,
+            _sum: { estimatedCostUsd: true }
+          }),
+          prisma.broadcast.aggregate({
+            where: { organizationId: orgId },
+            _count: true,
+            _sum: { sentCount: true }
+          })
+        ]);
+
+      return {
+        contacts,
+        conversations,
+        openConversations,
+        messages: { total: messages, inbound, outbound },
+        ai: {
+          calls: ai._count,
+          estimatedCostUsd: Number((ai._sum.estimatedCostUsd ?? 0).toFixed(6))
+        },
+        broadcasts: {
+          total: broadcasts._count,
+          sent: broadcasts._sum.sentCount ?? 0
+        }
+      };
+    }
+
+    const store = getStore();
     const contacts = store.contacts.filter((item) => item.organizationId === orgId);
     const conversations = store.conversations.filter((item) => item.organizationId === orgId);
     const messages = store.messages.filter((item) => item.organizationId === orgId);

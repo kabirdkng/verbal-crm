@@ -9,7 +9,7 @@ import { getStore } from "@/lib/store";
  */
 export async function GET(request: NextRequest): Promise<Response> {
   try {
-    const context = getAuthContext(request.headers);
+    const context = await getAuthContext(request.headers);
     if (!isFeatureEnabled("realtime", context.organizationId)) {
       return new Response(JSON.stringify({ error: { code: "FORBIDDEN", message: "Realtime disabled" } }), {
         status: 403,

@@ -1,5 +1,5 @@
-// Postgres/Neon target schema (Phase 2+).
-// Runtime default remains in-memory until DATABASE_URL + prisma generate are configured.
+// PostgreSQL schema for Docker local (and Neon production).
+// Set PERSISTENCE_MODE=postgres and DATABASE_URL to use Prisma repositories.
 
 generator client {
   provider = "prisma-client-js"
