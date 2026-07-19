@@ -39,8 +39,10 @@ describe.runIf(run)("Contacts Postgres integration", () => {
   });
 
   afterAll(async () => {
-    await getPrisma().contact.deleteMany({ where: { organizationId: orgId } });
-    await getPrisma().organization.deleteMany({ where: { id: orgId } });
+    const prisma = getPrisma();
+    await prisma.auditEvent.deleteMany({ where: { organizationId: orgId } });
+    await prisma.contact.deleteMany({ where: { organizationId: orgId } });
+    await prisma.organization.deleteMany({ where: { id: orgId } });
     await disconnectPrisma();
   });
 

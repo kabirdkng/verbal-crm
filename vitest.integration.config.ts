@@ -12,6 +12,14 @@ export default defineConfig({
     include: ["src/**/*.integration.test.ts"],
     fileParallelism: false,
     testTimeout: 30_000,
-    hookTimeout: 60_000
+    hookTimeout: 60_000,
+    env: {
+      PERSISTENCE_MODE: "postgres",
+      QUEUE_MODE: "redis",
+      DATABASE_URL:
+        process.env.DATABASE_URL ??
+        "postgresql://verbal:verbal@localhost:5432/verbal_crm?schema=public",
+      REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379"
+    }
   }
 });

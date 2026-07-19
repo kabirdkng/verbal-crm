@@ -9,6 +9,12 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"]
+    include: ["src/**/*.test.ts"],
+    exclude: ["src/**/*.integration.test.ts", "node_modules"],
+    // Unit suite always uses in-memory adapters even if .env.local is docker-backed.
+    env: {
+      PERSISTENCE_MODE: "memory",
+      QUEUE_MODE: "memory"
+    }
   }
 });
