@@ -1,9 +1,11 @@
 export type SessionContext = {
   userId: string;
   organizationId: string;
-  role: "admin" | "manager" | "agent";
+  role: "admin" | "manager" | "agent" | "platform";
   email?: string;
   name?: string;
+  organizationName?: string;
+  isPlatformAdmin?: boolean;
 };
 
 export type ApiErrorBody = {
@@ -24,8 +26,9 @@ export async function apiFetch<T>(
     headers.set("content-type", "application/json");
   }
 
-  // Cookie session preferred; headers retained for demo/tools when AUTH_ALLOW_HEADERS is on.
-  if (session) {
+  // Cookie session is authoritative (credentials: "include").
+  // Header auth is a local/dev fallback when AUTH_ALLOW_HEADERS is enabled.
+  if (session?.userId && session.organizationId) {
     headers.set("x-user-id", session.userId);
     headers.set("x-organization-id", session.organizationId);
     headers.set("x-role", session.role);
@@ -45,10 +48,8 @@ export async function apiFetch<T>(
   return body;
 }
 
-export const defaultSession: SessionContext = {
-  userId: "u_demo_admin",
-  organizationId: "org_demo",
-  role: "admin",
-  email: "admin@demo.local",
-  name: "Demo Admin"
+export const emptySession: SessionContext = {
+  userId: "",
+  organizationId: "",
+  role: "agent"
 };

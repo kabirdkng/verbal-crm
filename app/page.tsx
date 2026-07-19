@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/ui/api-client";
 import { useSession } from "@/ui/session";
 
@@ -14,11 +15,20 @@ type Overview = {
 };
 
 export default function HomePage() {
-  const { session, authenticated } = useSession();
+  const { session, authenticated, isPlatformHome, isPlatformAdmin, isTenantWorkspace } =
+    useSession();
+  const router = useRouter();
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isPlatformHome) {
+      router.replace("/admin");
+    }
+  }, [isPlatformHome, router]);
+
+  useEffect(() => {
+    if (!isTenantWorkspace) return;
     let cancelled = false;
     async function load() {
       try {
@@ -37,16 +47,20 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [session, isTenantWorkspace]);
+
+  if (isPlatformHome) {
+    return <div className="empty">Redirecting to platform admin…</div>;
+  }
 
   return (
     <div>
       <header className="page-header">
         <div>
-          <h1>Overview</h1>
+          <h1>{session.organizationName ?? "Workspace"} overview</h1>
           <p>
-            Full platform (Phases 1–5): identity, CRM ops, broadcasts, automations, analytics,
-            realtime, production hardening.
+            Tenant workspace for contacts, WhatsApp inbox, automations, and AI assist.
+            {isPlatformAdmin ? " You are viewing this tenant as platform admin." : ""}
           </p>
         </div>
         <div className="row">
@@ -84,38 +98,34 @@ export default function HomePage() {
 
       <div className="grid-2">
         <section className="card stack">
-          <h2 style={{ margin: 0 }}>Platform capabilities</h2>
-          <ul className="muted">
-            <li>Session auth + demo header auth for tools</li>
-            <li>Contacts, notes, inbox, assignment</li>
-            <li>Idempotent WhatsApp webhooks + automations</li>
-            <li>Broadcasts, templates, 24h service window</li>
-            <li>AI suggest-reply with org budget metering</li>
-            <li>Analytics, SSE events, feature flags, worker drain</li>
-          </ul>
-        </section>
-        <section className="card stack">
           <h2 style={{ margin: 0 }}>Quick links</h2>
           <div className="row">
             <Link className="btn" href="/contacts">
               Contacts
             </Link>
-            <Link className="btn" href="/broadcasts">
-              Broadcasts
-            </Link>
-            <Link className="btn" href="/automations">
-              Automations
-            </Link>
-            <Link className="btn" href="/analytics">
-              Analytics
+            <Link className="btn" href="/team">
+              Team
             </Link>
             <Link className="btn" href="/settings">
               Settings
             </Link>
+            {isPlatformAdmin ? (
+              <Link className="btn" href="/admin">
+                Platform admin
+              </Link>
+            ) : null}
           </div>
-          <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-            Demo login: admin@demo.local / demo-password
-          </p>
+        </section>
+        <section className="card stack">
+          <h2 style={{ margin: 0 }}>Roles</h2>
+          <ul className="muted">
+            <li>
+              <strong>Platform admin</strong> — manage tenants, enter any workspace
+            </li>
+            <li>
+              <strong>Tenant admin / manager / agent</strong> — CRM inside one org
+            </li>
+          </ul>
         </section>
       </div>
     </div>

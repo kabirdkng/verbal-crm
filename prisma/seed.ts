@@ -29,13 +29,42 @@ async function main() {
     where: { email: "admin@demo.local" },
     update: {
       name: "Demo Admin",
-      passwordHash: hashPassword("demo-password")
+      passwordHash: hashPassword("demo-password"),
+      isPlatformAdmin: false
     },
     create: {
       id: "u_demo_admin",
       email: "admin@demo.local",
       name: "Demo Admin",
-      passwordHash: hashPassword("demo-password")
+      passwordHash: hashPassword("demo-password"),
+      isPlatformAdmin: false
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { email: "platform@verbal.local" },
+    update: {
+      name: "Platform Admin",
+      passwordHash: hashPassword("demo-password"),
+      isPlatformAdmin: true
+    },
+    create: {
+      id: "u_platform_admin",
+      email: "platform@verbal.local",
+      name: "Platform Admin",
+      passwordHash: hashPassword("demo-password"),
+      isPlatformAdmin: true
+    }
+  });
+
+  await prisma.organization.upsert({
+    where: { id: "org_platform" },
+    update: { name: "Platform Control Plane", slug: "platform" },
+    create: {
+      id: "org_platform",
+      name: "Platform Control Plane",
+      slug: "platform",
+      aiBudgetUsd: 0
     }
   });
 
@@ -121,8 +150,8 @@ async function main() {
 
   console.log("Seed complete:", {
     organizationId: org.id,
-    email: user.email,
-    password: "demo-password"
+    tenantAdmin: { email: user.email, password: "demo-password" },
+    platformAdmin: { email: "platform@verbal.local", password: "demo-password" }
   });
 }
 

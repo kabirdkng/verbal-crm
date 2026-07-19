@@ -19,7 +19,7 @@ type OrgOption = {
 };
 
 export default function TeamPage() {
-  const { session, setSession, refreshMe } = useSession();
+  const { session, setSession, refreshMe, isPlatformAdmin } = useSession();
   const [members, setMembers] = useState<Member[]>([]);
   const [orgs, setOrgs] = useState<OrgOption[]>([]);
   const [email, setEmail] = useState("");
@@ -97,20 +97,26 @@ export default function TeamPage() {
   async function switchOrg(organizationId: string) {
     setError(null);
     try {
-      const result = await apiFetch<{ data: { organizationId: string; role: string } }>(
-        "/api/v1/auth/switch-org",
-        session,
-        {
-          method: "POST",
-          body: JSON.stringify({ organizationId })
-        }
-      );
-      setSession({
-        ...session,
-        organizationId: result.data.organizationId,
-        role: result.data.role as "admin" | "manager" | "agent"
+      // Platform admins enter tenants; tenant users switch membership orgs.
+      const path = isPlatformAdmin
+        ? "/api/v1/platform/tenants/enter"
+        : "/api/v1/auth/switch-org";
+      await apiFetch(path, session, {
+        method: "POST",
+        body: JSON.stringify({ organizationId })
       });
-      await refreshMe();
+      const me = await refreshMe();
+      if (me) {
+        setSession({
+          userId: me.user.id,
+          organizationId: me.organization?.id ?? organizationId,
+          role: me.role,
+          email: me.user.email,
+          name: me.user.name,
+          organizationName: me.organization?.name,
+          isPlatformAdmin: me.user.isPlatformAdmin
+        });
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Switch org failed");

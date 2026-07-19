@@ -110,6 +110,7 @@ export type UserRecord = {
   email: string;
   name: string;
   passwordHash: string;
+  isPlatformAdmin: boolean;
   createdAt: Date;
 };
 
@@ -133,7 +134,8 @@ export type SessionRecord = {
   id: string;
   userId: string;
   organizationId: string;
-  role: Role;
+  /** Tenant role or "platform" for platform-admin home session */
+  role: Role | "platform";
   expiresAt: Date;
   createdAt: Date;
 };
@@ -268,6 +270,17 @@ export function seedDemoData(store: AppStore = getStore()): void {
     email: "admin@demo.local",
     name: "Demo Admin",
     passwordHash: "pending",
+    isPlatformAdmin: false,
+    createdAt: now
+  });
+
+  // Platform super-admin (no required tenant membership; can open any tenant)
+  store.users.push({
+    id: "u_platform_admin",
+    email: "platform@verbal.local",
+    name: "Platform Admin",
+    passwordHash: "pending",
+    isPlatformAdmin: true,
     createdAt: now
   });
 

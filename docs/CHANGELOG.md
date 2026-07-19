@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.1.0 — Platform admin → tenant flow (2026-07-20)
+
+### Added
+- `users.is_platform_admin` + seed user `platform@verbal.local` / `demo-password`
+- Platform home org `org_platform` and session role `platform`
+- APIs: list/create tenants, enter tenant, return to platform
+- Admin UI: `/admin`, `/admin/tenants/new`
+- Auth gate + dual shells (platform control plane vs tenant CRM)
+- Workspace select for multi-membership tenant users
+- ADR-011 + platform identity service tests
+
+### Changed
+- Login routes platform admins to `/admin`, tenant users to CRM
+- Shell workspace switcher uses enter-tenant for platform admins
+- Cookie session preferred over crude header-only org override UX
+
 ## 2.0.0 — Product complete (Phases 6–9) (2026-07-20)
 
 ### Added

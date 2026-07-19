@@ -4,13 +4,16 @@ import { getPrismaAdmin, runAsSystem, runWithTenant } from "@/lib/prisma";
 import { getStore } from "@/lib/store";
 
 export type Role = "admin" | "manager" | "agent";
+/** Tenant roles plus platform super-admin (not a tenant membership role). */
+export type AuthRole = Role | "platform";
 
 export type AuthContext = {
   userId: string;
   organizationId: string;
-  role: Role;
+  role: AuthRole;
   sessionId?: string;
   email?: string;
+  isPlatformAdmin?: boolean;
 };
 
 export type HeaderReader = {
@@ -45,6 +48,10 @@ function isRole(value: string): value is Role {
   return value === "admin" || value === "manager" || value === "agent";
 }
 
+function isAuthRole(value: string): value is AuthRole {
+  return isRole(value) || value === "platform";
+}
+
 async function resolveSessionContext(sessionId: string): Promise<AuthContext | null> {
   if (getPersistenceMode() === "postgres") {
     // Sessions are global (not RLS-scoped); use admin client.
@@ -55,15 +62,17 @@ async function resolveSessionContext(sessionId: string): Promise<AuthContext | n
     if (!session || session.expiresAt.getTime() <= Date.now()) {
       return null;
     }
-    if (!isRole(session.role)) {
+    if (!isAuthRole(session.role) && !isRole(session.role)) {
       return null;
     }
+    const role = (session.role === "platform" ? "platform" : session.role) as AuthRole;
     return {
       userId: session.userId,
       organizationId: session.organizationId,
-      role: session.role,
+      role,
       sessionId: session.id,
-      email: session.user.email
+      email: session.user.email,
+      isPlatformAdmin: session.user.isPlatformAdmin || role === "platform"
     };
   }
 
@@ -72,12 +81,14 @@ async function resolveSessionContext(sessionId: string): Promise<AuthContext | n
     return null;
   }
   const user = getStore().users.find((item) => item.id === session.userId);
+  const role = (session.role === "platform" ? "platform" : session.role) as AuthRole;
   return {
     userId: session.userId,
     organizationId: session.organizationId,
-    role: session.role,
+    role,
     sessionId: session.id,
-    email: user?.email
+    email: user?.email,
+    isPlatformAdmin: user?.isPlatformAdmin || role === "platform"
   };
 }
 
@@ -102,16 +113,31 @@ export async function getAuthContext(headers: HeaderReader): Promise<AuthContext
     throw new AppError("UNAUTHORIZED", 401, "Missing authentication headers");
   }
 
-  if (!isRole(role)) {
+  if (!isRole(role) && role !== "platform") {
     throw new AppError("FORBIDDEN", 403, "Invalid role");
   }
 
-  return { userId, organizationId, role };
+  return {
+    userId,
+    organizationId,
+    role: role as AuthRole,
+    isPlatformAdmin: role === "platform"
+  };
 }
 
 export function requireAnyRole(context: AuthContext, allowedRoles: Role[]): void {
-  if (!allowedRoles.includes(context.role)) {
+  // Platform admins operating inside a tenant session keep elevated ops where listed.
+  if (context.role === "platform") {
+    return;
+  }
+  if (!allowedRoles.includes(context.role as Role)) {
     throw new AppError("FORBIDDEN", 403, "Insufficient role");
+  }
+}
+
+export function requirePlatformAdmin(context: AuthContext): void {
+  if (!context.isPlatformAdmin && context.role !== "platform") {
+    throw new AppError("FORBIDDEN", 403, "Platform admin required");
   }
 }
 

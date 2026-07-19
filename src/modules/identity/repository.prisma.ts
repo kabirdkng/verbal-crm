@@ -24,12 +24,14 @@ export class PrismaIdentityRepository implements IdentityRepository {
     email: string;
     name: string;
     passwordHash: string;
+    isPlatformAdmin?: boolean;
   }): Promise<UserRecord> {
     return getPrismaAdmin().user.create({
       data: {
         email: input.email.trim().toLowerCase(),
         name: input.name.trim(),
-        passwordHash: input.passwordHash
+        passwordHash: input.passwordHash,
+        isPlatformAdmin: Boolean(input.isPlatformAdmin)
       }
     });
   }
@@ -37,9 +39,11 @@ export class PrismaIdentityRepository implements IdentityRepository {
   async createOrganization(input: {
     name: string;
     slug: string;
+    id?: string;
   }): Promise<OrganizationRecord> {
     return getPrismaAdmin().organization.create({
       data: {
+        id: input.id,
         name: input.name.trim(),
         slug: input.slug.trim().toLowerCase(),
         aiBudgetUsd: Number(process.env.AI_ORG_BUDGET_USD ?? "10")
@@ -49,6 +53,10 @@ export class PrismaIdentityRepository implements IdentityRepository {
 
   async findOrganization(organizationId: string): Promise<OrganizationRecord | null> {
     return getPrismaAdmin().organization.findUnique({ where: { id: organizationId } });
+  }
+
+  async listAllOrganizations(): Promise<OrganizationRecord[]> {
+    return getPrismaAdmin().organization.findMany({ orderBy: { createdAt: "desc" } });
   }
 
   async updateOrganizationBudget(
@@ -94,7 +102,7 @@ export class PrismaIdentityRepository implements IdentityRepository {
   async createSession(input: {
     userId: string;
     organizationId: string;
-    role: Role;
+    role: Role | "platform";
     expiresAt: Date;
   }): Promise<SessionRecord> {
     const row = await getPrismaAdmin().session.create({
@@ -105,12 +113,12 @@ export class PrismaIdentityRepository implements IdentityRepository {
         expiresAt: input.expiresAt
       }
     });
-    return { ...row, role: row.role as Role };
+    return { ...row, role: row.role as Role | "platform" };
   }
 
   async findSession(sessionId: string): Promise<SessionRecord | null> {
     const row = await getPrismaAdmin().session.findUnique({ where: { id: sessionId } });
-    return row ? { ...row, role: row.role as Role } : null;
+    return row ? { ...row, role: row.role as Role | "platform" } : null;
   }
 
   async deleteSession(sessionId: string): Promise<void> {

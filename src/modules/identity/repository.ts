@@ -15,9 +15,15 @@ export interface IdentityRepository {
     email: string;
     name: string;
     passwordHash: string;
+    isPlatformAdmin?: boolean;
   }): Promise<UserRecord>;
-  createOrganization(input: { name: string; slug: string }): Promise<OrganizationRecord>;
+  createOrganization(input: {
+    name: string;
+    slug: string;
+    id?: string;
+  }): Promise<OrganizationRecord>;
   findOrganization(organizationId: string): Promise<OrganizationRecord | null>;
+  listAllOrganizations(): Promise<OrganizationRecord[]>;
   updateOrganizationBudget(organizationId: string, aiBudgetUsd: number): Promise<OrganizationRecord>;
   createMembership(input: {
     userId: string;
@@ -29,7 +35,7 @@ export interface IdentityRepository {
   createSession(input: {
     userId: string;
     organizationId: string;
-    role: Role;
+    role: Role | "platform";
     expiresAt: Date;
   }): Promise<SessionRecord>;
   findSession(sessionId: string): Promise<SessionRecord | null>;
@@ -60,12 +66,14 @@ export class InMemoryIdentityRepository implements IdentityRepository {
     email: string;
     name: string;
     passwordHash: string;
+    isPlatformAdmin?: boolean;
   }): Promise<UserRecord> {
     const user: UserRecord = {
       id: createId("usr"),
       email: input.email.trim().toLowerCase(),
       name: input.name.trim(),
       passwordHash: input.passwordHash,
+      isPlatformAdmin: Boolean(input.isPlatformAdmin),
       createdAt: new Date()
     };
     getStore().users.push(user);
@@ -75,9 +83,10 @@ export class InMemoryIdentityRepository implements IdentityRepository {
   async createOrganization(input: {
     name: string;
     slug: string;
+    id?: string;
   }): Promise<OrganizationRecord> {
     const org: OrganizationRecord = {
-      id: createId("org"),
+      id: input.id ?? createId("org"),
       name: input.name.trim(),
       slug: input.slug.trim().toLowerCase(),
       aiBudgetUsd: Number(process.env.AI_ORG_BUDGET_USD ?? "10"),
@@ -89,6 +98,12 @@ export class InMemoryIdentityRepository implements IdentityRepository {
 
   async findOrganization(organizationId: string): Promise<OrganizationRecord | null> {
     return getStore().organizations.find((org) => org.id === organizationId) ?? null;
+  }
+
+  async listAllOrganizations(): Promise<OrganizationRecord[]> {
+    return [...getStore().organizations].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
   }
 
   async updateOrganizationBudget(
@@ -137,7 +152,7 @@ export class InMemoryIdentityRepository implements IdentityRepository {
   async createSession(input: {
     userId: string;
     organizationId: string;
-    role: Role;
+    role: Role | "platform";
     expiresAt: Date;
   }): Promise<SessionRecord> {
     const session: SessionRecord = {

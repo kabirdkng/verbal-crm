@@ -7,6 +7,7 @@
 - Multi-tenant CRM: contacts (CRUD, tags, notes, search), inbox (filters, assign, status), messages
 - WhatsApp: webhook, signature, Meta Graph send mode, worker, automations, broadcasts
 - Identity: register/login/session, invite members, roles, org switcher
+- **Platform admin control plane**: list/create tenants, enter tenant workspace, return to admin
 - AI: mock + xAI suggest-reply with budget metering
 - Analytics, audit, feature flags, org data export
 - Docker Postgres/Redis, RLS, dual-mode persistence

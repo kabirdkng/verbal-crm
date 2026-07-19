@@ -10,9 +10,21 @@ export function ensureDemoSeed(): void {
   }
 
   const store = getStore();
-  const demoUser = store.users.find((user) => user.id === "u_demo_admin");
-  if (demoUser && (demoUser.passwordHash === "pending" || !demoUser.passwordHash.includes(":"))) {
-    demoUser.passwordHash = hashPassword(DEMO_PASSWORD);
+  for (const id of ["u_demo_admin", "u_platform_admin"]) {
+    const user = store.users.find((item) => item.id === id);
+    if (user && (user.passwordHash === "pending" || !user.passwordHash.includes(":"))) {
+      user.passwordHash = hashPassword(DEMO_PASSWORD);
+    }
+  }
+
+  if (!store.organizations.some((o) => o.id === "org_platform")) {
+    store.organizations.push({
+      id: "org_platform",
+      name: "Platform Control Plane",
+      slug: "platform",
+      aiBudgetUsd: 0,
+      createdAt: new Date()
+    });
   }
 
   seeded = true;

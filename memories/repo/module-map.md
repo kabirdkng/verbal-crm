@@ -3,7 +3,7 @@
 | Path | Responsibility |
 |------|----------------|
 | `src/lib/*` | auth, password, rate-limit, feature-flags, store, queue, events, service-window |
-| `src/modules/identity` | register/login/session/org settings/members |
+| `src/modules/identity` | register/login/session/org settings/members + platform tenants (list/create/enter/return) |
 | `src/modules/contacts` | contacts + tags |
 | `src/modules/notes` | contact notes |
 | `src/modules/conversations` | inbox + assign + status |
@@ -16,7 +16,9 @@
 | `src/modules/analytics` | overview metrics |
 | `src/modules/app/container.ts` | DI root |
 | `app/api/v1/*` | routes |
-| `app/{login,register,contacts,inbox,broadcasts,automations,analytics,team,settings}` | UI |
+| `app/{login,register,select-workspace,admin,contacts,inbox,broadcasts,automations,analytics,team,settings}` | UI (admin = platform control plane) |
+| `app/api/v1/platform/*` | platform tenant APIs |
+| `src/ui/{session,auth-gate,shell,api-client}` | client session + routing gate + dual shell |
 | `src/modules/export` | Org data export |
 | `prisma/schema.prisma` + `rls.sql` | Postgres target |
 | `memories/repo` | agent operational memory |

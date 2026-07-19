@@ -14,6 +14,7 @@
 - Worker: `npm run worker` / Docker profile `worker` drains Redis queue; HTTP `/api/v1/workers/drain` for cron
 - AI: `AI_MODE=mock|xai`; xAI uses `XAI_API_KEY` + `https://api.x.ai/v1` + model `grok-4.5`; budget enforced per org
 - Staging: Vercel + Neon + Upstash; webhook inline drain off; cron or docker worker drains Redis
+- **Platform admin flow**: `users.is_platform_admin`; session role `platform` on `org_platform`; enter tenant issues `admin` session without membership; APIs under `/api/v1/platform/*`; UI `/admin` vs tenant CRM; cookie session authoritative
 
 
 

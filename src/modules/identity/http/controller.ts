@@ -65,7 +65,10 @@ export class IdentityController {
             data: {
               userId: result.userId,
               organizationId: result.organizationId,
-              role: result.role
+              role: result.role,
+              isPlatformAdmin: Boolean(
+                "isPlatformAdmin" in result && result.isPlatformAdmin
+              )
             }
           },
           headers: { "set-cookie": sessionCookie(result.sessionId) }
@@ -229,6 +232,91 @@ export class IdentityController {
         const orgs = await this.service.listMyOrganizations(context);
         return { status: 200, body: { data: orgs } };
       });
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
+
+  async listTenants(headers: HeaderReader): Promise<JsonResponse> {
+    try {
+      const context = await getAuthContext(headers);
+      const tenants = await withSystemAuth(() => this.service.listTenants(context));
+      return {
+        status: 200,
+        body: {
+          data: tenants.map((t) => ({
+            id: t.id,
+            name: t.name,
+            slug: t.slug,
+            aiBudgetUsd: t.aiBudgetUsd,
+            createdAt: t.createdAt.toISOString()
+          }))
+        }
+      };
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
+
+  async createTenant(request: JsonRequest): Promise<JsonResponse> {
+    try {
+      const context = await getAuthContext(request.headers);
+      const payload = await request.json();
+      const result = await withSystemAuth(() => this.service.createTenant(context, payload));
+      return {
+        status: 201,
+        body: {
+          data: {
+            organization: {
+              id: result.organization.id,
+              name: result.organization.name,
+              slug: result.organization.slug,
+              aiBudgetUsd: result.organization.aiBudgetUsd
+            },
+            owner: result.owner
+          }
+        }
+      };
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
+
+  async enterTenant(request: JsonRequest): Promise<JsonResponse> {
+    try {
+      const context = await getAuthContext(request.headers);
+      const payload = await request.json();
+      const result = await withSystemAuth(() => this.service.enterTenant(context, payload));
+      return {
+        status: 200,
+        body: {
+          data: {
+            organizationId: result.organizationId,
+            organizationName: result.organizationName,
+            role: result.role
+          }
+        },
+        headers: { "set-cookie": sessionCookie(result.sessionId) }
+      };
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
+
+  async returnToPlatform(headers: HeaderReader): Promise<JsonResponse> {
+    try {
+      const context = await getAuthContext(headers);
+      const result = await withSystemAuth(() => this.service.returnToPlatform(context));
+      return {
+        status: 200,
+        body: {
+          data: {
+            organizationId: result.organizationId,
+            role: result.role
+          }
+        },
+        headers: { "set-cookie": sessionCookie(result.sessionId) }
+      };
     } catch (error) {
       return toErrorEnvelope(error);
     }
