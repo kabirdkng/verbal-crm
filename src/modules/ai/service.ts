@@ -74,15 +74,30 @@ export class AiService {
       conversation.contactId
     );
 
-    const result = await this.provider.suggestReply({
-      organizationId: context.organizationId,
-      conversationId: conversation.id,
-      contactName: contact?.fullName,
-      recentMessages: messages.slice(-10).map((message) => ({
-        direction: message.direction,
-        body: message.body
-      }))
-    });
+    let result;
+    try {
+      result = await this.provider.suggestReply({
+        organizationId: context.organizationId,
+        conversationId: conversation.id,
+        contactName: contact?.fullName,
+        recentMessages: messages.slice(-10).map((message) => ({
+          direction: message.direction,
+          body: message.body
+        }))
+      });
+    } catch (error) {
+      await this.auditLogger.log({
+        action: "ai.suggest_reply_failed",
+        organizationId: context.organizationId,
+        actorUserId: context.userId,
+        entityType: "conversation",
+        entityId: conversation.id,
+        metadata: {
+          error: error instanceof Error ? error.message : "unknown"
+        }
+      });
+      throw error;
+    }
 
     await this.usageRepository.record({
       organizationId: context.organizationId,

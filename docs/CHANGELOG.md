@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 — SpaceXAI / xAI reply suggestions (2026-07-20)
+
+### Added
+- `XaiAiProvider` via OpenAI-compatible Chat Completions (`grok-4.5`)
+- `AI_MODE=mock|xai` factory and cost estimation from token usage
+- Failure audit `ai.suggest_reply_failed`
+- ADR-009 + unit tests for xAI provider and config
+
 ## 1.4.0 — WhatsApp background worker (2026-07-20)
 
 ### Added

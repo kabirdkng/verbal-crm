@@ -7,7 +7,8 @@ import { RedisJobQueue } from "@/lib/queue-redis";
 import { AnalyticsController } from "@/modules/analytics/http/controller";
 import { AnalyticsService } from "@/modules/analytics/service";
 import { AiController } from "@/modules/ai/http/controller";
-import { MockAiProvider } from "@/modules/ai/adapters/provider";
+import { createAiProvider } from "@/modules/ai/adapters/provider";
+import { loadAiConfig } from "@/modules/ai/config";
 import { InMemoryAiUsageRepository } from "@/modules/ai/repository";
 import { PrismaAiUsageRepository } from "@/modules/ai/repository.prisma";
 import { AiService } from "@/modules/ai/service";
@@ -94,8 +95,9 @@ const notesRepository =
   persistence === "postgres" ? new PrismaNotesRepository() : new InMemoryNotesRepository();
 
 export const whatsAppConfig = loadWhatsAppConfig();
+export const aiConfig = loadAiConfig();
 const whatsAppSender = createWhatsAppSender(whatsAppConfig);
-const aiProvider = new MockAiProvider();
+const aiProvider = createAiProvider(aiConfig);
 const signatureValidator = new MetaSignatureValidator(
   whatsAppConfig.appSecret,
   whatsAppConfig.requireSignature
@@ -193,6 +195,8 @@ export const appContainer = {
   notesRepository,
   whatsAppSender,
   whatsAppConfig,
+  aiProvider,
+  aiConfig,
   inboundWorker,
   automationsService,
   drainWhatsAppQueue

@@ -138,4 +138,19 @@ curl -X POST http://localhost:3000/api/v1/workers/drain \
 
 See `docs/architecture/ADR-008-WHATSAPP-WORKER.md`.
 
+## AI (SpaceXAI / xAI)
+
+Local default is **mock** suggestions (no API key).
+
+```bash
+# .env.local for real Grok suggestions
+AI_MODE=xai
+XAI_API_KEY=...
+XAI_MODEL=grok-4.5
+```
+
+Get a key: https://console.x.ai — docs: https://docs.x.ai  
+See `docs/architecture/ADR-009-AI-XAI.md`.
+
+
 

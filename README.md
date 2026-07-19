@@ -11,6 +11,7 @@ Multi-tenant, AI-first customer communication platform — **Phases 1–5 comple
 | 3 | Notes, assignment, broadcasts, automations |
 | 4 | Analytics, SSE realtime, org AI budget |
 | 5 | Rate limits, feature flags, worker drain, production pack |
+| 6+ | Docker Postgres/Redis, RLS, Meta WhatsApp, worker, xAI |
 
 ## Quick start (Docker local — recommended)
 

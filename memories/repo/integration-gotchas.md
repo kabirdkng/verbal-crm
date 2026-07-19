@@ -22,6 +22,10 @@
 ## AI
 - Budget read from Organization record when present.
 - Agents can suggest; usage list is admin/manager.
+- `AI_MODE=xai` requires server-side `XAI_API_KEY`; never expose to the browser.
+- Cost is estimated from API usage tokens × `XAI_*_USD_PER_1M` (not a billing invoice).
+- Failures audit as `ai.suggest_reply_failed`.
+
 
 ## Store
 - In-memory not multi-instance safe.
