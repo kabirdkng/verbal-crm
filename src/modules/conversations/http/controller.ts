@@ -53,4 +53,32 @@ export class ConversationsController {
       return toErrorEnvelope(error);
     }
   }
+
+  async patch(request: JsonRequest, conversationId: string): Promise<JsonResponse> {
+    try {
+      const context = getAuthContext(request.headers);
+      const payload = (await request.json()) as {
+        assignedUserId?: string | null;
+        status?: "open" | "pending" | "closed";
+      };
+
+      let conversation;
+      if (payload.assignedUserId !== undefined) {
+        conversation = await this.service.assign(
+          context,
+          conversationId,
+          payload.assignedUserId
+        );
+      } else if (payload.status) {
+        conversation = await this.service.setStatus(context, conversationId, payload.status);
+      } else {
+        conversation = await this.service.getById(context, conversationId);
+      }
+
+      const body = GetConversationResponseSchema.parse({ data: conversation });
+      return { status: 200, body };
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
 }

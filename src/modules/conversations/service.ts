@@ -79,6 +79,50 @@ export class ConversationsService {
     return this.toResponse(record);
   }
 
+  async assign(
+    context: AuthContext,
+    conversationId: string,
+    assignedUserId: string | null
+  ): Promise<ConversationResponse> {
+    requireAnyRole(context, ["admin", "manager"]);
+    const record = await this.repository.assign(
+      context.organizationId,
+      conversationId,
+      assignedUserId
+    );
+    if (!record) {
+      throw new AppError("NOT_FOUND", 404, "Conversation not found");
+    }
+
+    await this.auditLogger.log({
+      action: "conversation.assigned",
+      organizationId: context.organizationId,
+      actorUserId: context.userId,
+      entityType: "conversation",
+      entityId: conversationId,
+      metadata: { assignedUserId }
+    });
+
+    return this.toResponse(record);
+  }
+
+  async setStatus(
+    context: AuthContext,
+    conversationId: string,
+    status: "open" | "pending" | "closed"
+  ): Promise<ConversationResponse> {
+    requireAnyRole(context, ["admin", "manager", "agent"]);
+    const record = await this.repository.updateStatus(
+      context.organizationId,
+      conversationId,
+      status
+    );
+    if (!record) {
+      throw new AppError("NOT_FOUND", 404, "Conversation not found");
+    }
+    return this.toResponse(record);
+  }
+
   private toResponse(conversation: Conversation): ConversationResponse {
     return {
       id: conversation.id,

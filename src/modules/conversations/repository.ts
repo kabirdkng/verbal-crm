@@ -20,6 +20,16 @@ export interface ConversationsRepository {
   ): Promise<Conversation | null>;
   touchInbound(organizationId: string, conversationId: string, at: Date): Promise<void>;
   touchOutbound(organizationId: string, conversationId: string, at: Date): Promise<void>;
+  assign(
+    organizationId: string,
+    conversationId: string,
+    assignedUserId: string | null
+  ): Promise<Conversation | null>;
+  updateStatus(
+    organizationId: string,
+    conversationId: string,
+    status: ConversationStatus
+  ): Promise<Conversation | null>;
 }
 
 function toDomain(record: ConversationRecord): Conversation {
@@ -117,5 +127,37 @@ export class InMemoryConversationsRepository implements ConversationsRepository 
     }
     record.lastMessageAt = at;
     record.updatedAt = at;
+  }
+
+  async assign(
+    organizationId: string,
+    conversationId: string,
+    assignedUserId: string | null
+  ): Promise<Conversation | null> {
+    const record = getStore().conversations.find(
+      (item) => item.id === conversationId && item.organizationId === organizationId
+    );
+    if (!record) {
+      return null;
+    }
+    record.assignedUserId = assignedUserId;
+    record.updatedAt = new Date();
+    return toDomain(record);
+  }
+
+  async updateStatus(
+    organizationId: string,
+    conversationId: string,
+    status: ConversationStatus
+  ): Promise<Conversation | null> {
+    const record = getStore().conversations.find(
+      (item) => item.id === conversationId && item.organizationId === organizationId
+    );
+    if (!record) {
+      return null;
+    }
+    record.status = status;
+    record.updatedAt = new Date();
+    return toDomain(record);
   }
 }

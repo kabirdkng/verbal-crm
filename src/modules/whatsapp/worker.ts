@@ -1,5 +1,6 @@
 import type { EventBus } from "@/lib/events";
 import type { QueueJobRecord } from "@/lib/store";
+import type { AutomationsService } from "@/modules/automations/service";
 import type { ContactsRepository } from "@/modules/contacts/repository";
 import type { ConversationsRepository } from "@/modules/conversations/repository";
 import type { MessagesRepository } from "@/modules/messages/repository";
@@ -12,7 +13,8 @@ export class WhatsAppInboundWorker {
     private readonly conversationsRepository: ConversationsRepository,
     private readonly messagesRepository: MessagesRepository,
     private readonly webhookEvents: WebhookEventsRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
+    private readonly automationsService?: AutomationsService
   ) {}
 
   async handle(job: QueueJobRecord): Promise<void> {
@@ -76,6 +78,21 @@ export class WhatsAppInboundWorker {
           providerMessageId
         }
       });
+
+      if (this.automationsService) {
+        const fired = await this.automationsService.runForInbound({
+          organizationId,
+          phone: contact.phone,
+          body
+        });
+        if (fired > 0) {
+          await this.eventBus.publish({
+            organizationId,
+            type: "automation.fired",
+            payload: { conversationId: conversation.id, count: fired }
+          });
+        }
+      }
 
       await this.webhookEvents.updateStatus(webhookEventId, "processed");
     } catch (error) {

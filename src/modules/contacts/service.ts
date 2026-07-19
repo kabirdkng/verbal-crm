@@ -27,7 +27,8 @@ export class ContactsService {
       organizationId: context.organizationId,
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
-      email: parsed.data.email
+      email: parsed.data.email,
+      tags: parsed.data.tags
     });
 
     await this.auditLogger.log({
@@ -67,6 +68,7 @@ export class ContactsService {
       fullName: contact.fullName,
       phone: contact.phone,
       email: contact.email,
+      tags: contact.tags ?? [],
       createdAt: contact.createdAt.toISOString(),
       updatedAt: contact.updatedAt.toISOString()
     };

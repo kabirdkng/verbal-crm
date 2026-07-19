@@ -3,7 +3,8 @@ import { z } from "zod";
 export const CreateContactRequestSchema = z.object({
   fullName: z.string().trim().min(1).max(120),
   phone: z.string().trim().min(8).max(32),
-  email: z.string().trim().email().optional()
+  email: z.string().trim().email().optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(20).optional()
 });
 
 export const ContactResponseSchema = z.object({
@@ -12,6 +13,7 @@ export const ContactResponseSchema = z.object({
   fullName: z.string(),
   phone: z.string(),
   email: z.string().nullable(),
+  tags: z.array(z.string()),
   createdAt: z.string(),
   updatedAt: z.string()
 });

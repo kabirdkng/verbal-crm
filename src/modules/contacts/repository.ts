@@ -8,6 +8,7 @@ export type CreateContactInput = {
   fullName: string;
   phone: string;
   email?: string;
+  tags?: string[];
 };
 
 export interface ContactsRepository {
@@ -29,6 +30,7 @@ function toDomain(record: ContactRecord): Contact {
     fullName: record.fullName,
     phone: record.phone,
     email: record.email,
+    tags: record.tags ?? [],
     createdAt: record.createdAt,
     updatedAt: record.updatedAt
   };
@@ -43,6 +45,7 @@ export class InMemoryContactsRepository implements ContactsRepository {
       fullName: input.fullName,
       phone: normalizePhone(input.phone),
       email: input.email ?? null,
+      tags: input.tags ?? [],
       createdAt: now,
       updatedAt: now
     };
