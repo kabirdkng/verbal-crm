@@ -43,9 +43,48 @@ export const WhatsAppWebhookPayloadSchema = z.object({
                       })
                     )
                     .optional(),
-                  messages: z.array(WhatsAppInboundMessageSchema).optional()
+                  messages: z.array(WhatsAppInboundMessageSchema).optional(),
+                  // Cloud API Calling webhooks (field=calls)
+                  calls: z
+                    .array(
+                      z
+                        .object({
+                          id: z.string().optional(),
+                          event: z.string().optional(),
+                          direction: z.string().optional(),
+                          from: z.string().optional(),
+                          to: z.string().optional(),
+                          status: z.union([z.string(), z.array(z.string())]).optional(),
+                          start_time: z.string().optional(),
+                          end_time: z.string().optional(),
+                          duration: z.number().optional(),
+                          session: z
+                            .object({
+                              sdp_type: z.string().optional(),
+                              sdp: z.string().optional()
+                            })
+                            .optional(),
+                          biz_opaque_callback_data: z.string().optional()
+                        })
+                        .passthrough()
+                    )
+                    .optional(),
+                  statuses: z
+                    .array(
+                      z
+                        .object({
+                          id: z.string().optional(),
+                          type: z.string().optional(),
+                          status: z.string().optional(),
+                          timestamp: z.string().optional(),
+                          recipient_id: z.string().optional()
+                        })
+                        .passthrough()
+                    )
+                    .optional()
                 })
-                .passthrough()
+                .passthrough(),
+              field: z.string().optional()
             })
           )
           .optional()

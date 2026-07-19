@@ -52,6 +52,11 @@ import { PrismaWebhookEventsRepository } from "@/modules/whatsapp/repository.pri
 import { WhatsAppInboundWorker } from "@/modules/whatsapp/worker";
 import { ExportController } from "@/modules/export/http/controller";
 import { ExportService } from "@/modules/export/service";
+import { createWhatsAppCallingClient } from "@/modules/calling/adapters/client";
+import { CallingController } from "@/modules/calling/http/controller";
+import { InMemoryCallsRepository } from "@/modules/calling/repository";
+import { PrismaCallsRepository } from "@/modules/calling/repository.prisma";
+import { CallingService } from "@/modules/calling/service";
 
 const persistence = getPersistenceMode();
 const queueMode = getQueueMode();
@@ -95,10 +100,13 @@ const aiUsageRepository =
     : new InMemoryAiUsageRepository();
 const notesRepository =
   persistence === "postgres" ? new PrismaNotesRepository() : new InMemoryNotesRepository();
+const callsRepository =
+  persistence === "postgres" ? new PrismaCallsRepository() : new InMemoryCallsRepository();
 
 export const whatsAppConfig = loadWhatsAppConfig();
 export const aiConfig = loadAiConfig();
 const whatsAppSender = createWhatsAppSender(whatsAppConfig);
+const whatsAppCallingClient = createWhatsAppCallingClient(whatsAppConfig);
 const aiProvider = createAiProvider(aiConfig);
 const signatureValidator = new MetaSignatureValidator(
   whatsAppConfig.appSecret,
@@ -145,11 +153,22 @@ const aiService = new AiService(
   identityRepository
 );
 
+const callingService = new CallingService(
+  callsRepository,
+  whatsAppCallingClient,
+  conversationsRepository,
+  contactsRepository,
+  messagesRepository,
+  auditLogger,
+  eventBus
+);
+
 const ingestService = new WhatsAppIngestService(
   webhookEventsRepository,
   queue,
   signatureValidator,
-  whatsAppConfig
+  whatsAppConfig,
+  callingService
 );
 
 const inboundWorker = new WhatsAppInboundWorker(
@@ -180,6 +199,7 @@ export const whatsAppWebhookController = new WhatsAppWebhookController(
 );
 export const aiController = new AiController(aiService);
 export const auditController = new AuditController(auditLogger);
+export const callingController = new CallingController(callingService);
 
 const exportService = new ExportService(
   contactsRepository,
@@ -206,11 +226,14 @@ export const appContainer = {
   webhookEventsRepository,
   aiUsageRepository,
   notesRepository,
+  callsRepository,
   whatsAppSender,
+  whatsAppCallingClient,
   whatsAppConfig,
   aiProvider,
   aiConfig,
   inboundWorker,
   automationsService,
+  callingService,
   drainWhatsAppQueue
 };

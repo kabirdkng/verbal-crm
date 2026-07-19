@@ -36,6 +36,28 @@ type Member = {
   email: string;
 };
 
+type AiBudget = {
+  budgetUsd: number;
+  spentUsd: number;
+  remainingUsd: number;
+  percentUsed: number;
+};
+
+type VoiceCall = {
+  id: string;
+  status: string;
+  direction: string;
+  phone: string;
+  durationSeconds: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
+};
+
+type AiAction = "suggest_reply" | "improve_draft" | "summarize" | "next_steps" | "translate";
+type AiTone = "professional" | "friendly" | "empathetic" | "concise" | "formal";
+
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
   const conversationId = params.id;
@@ -48,23 +70,41 @@ export default function ConversationPage() {
   const [body, setBody] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [aiAction, setAiAction] = useState<AiAction>("suggest_reply");
+  const [aiTone, setAiTone] = useState<AiTone>("professional");
+  const [aiLanguage, setAiLanguage] = useState("es");
+  const [aiBudget, setAiBudget] = useState<AiBudget | null>(null);
+  const [activeCall, setActiveCall] = useState<VoiceCall | null>(null);
+  const [callHistory, setCallHistory] = useState<VoiceCall[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [conversationResult, messagesResult, templatesResult] = await Promise.all([
-        apiFetch<{ data: Conversation }>(`/api/v1/conversations/${conversationId}`, session),
-        apiFetch<{ data: Message[] }>(
-          `/api/v1/conversations/${conversationId}/messages`,
-          session
-        ),
-        apiFetch<{ data: Template[] }>("/api/v1/templates", session)
-      ]);
+      const [conversationResult, messagesResult, templatesResult, budgetResult, callsResult] =
+        await Promise.all([
+          apiFetch<{ data: Conversation }>(`/api/v1/conversations/${conversationId}`, session),
+          apiFetch<{ data: Message[] }>(
+            `/api/v1/conversations/${conversationId}/messages`,
+            session
+          ),
+          apiFetch<{ data: Template[] }>("/api/v1/templates", session),
+          apiFetch<{ data: AiBudget }>("/api/v1/ai/budget", session).catch(() => null),
+          apiFetch<{ data: VoiceCall[] }>(
+            `/api/v1/calls?conversationId=${encodeURIComponent(conversationId)}`,
+            session
+          ).catch(() => ({ data: [] as VoiceCall[] }))
+        ]);
       setConversation(conversationResult.data);
       setMessages(messagesResult.data);
       setTemplates(templatesResult.data.filter((item) => item.status === "approved"));
+      if (budgetResult) setAiBudget(budgetResult.data);
+      setCallHistory(callsResult.data);
+      const live = callsResult.data.find((c) =>
+        ["initiated", "ringing", "connecting", "active"].includes(c.status)
+      );
+      setActiveCall(live ?? null);
 
       try {
         const membersResult = await apiFetch<{ data: Member[] }>("/api/v1/org/members", session);
@@ -120,24 +160,117 @@ export default function ConversationPage() {
     }
   }
 
-  async function suggestReply() {
+  async function runAi() {
     setBusy(true);
     setError(null);
     try {
       const result = await apiFetch<{
-        data: { suggestion: string; usage: { estimatedCostUsd: number } };
-      }>("/api/v1/ai/suggest-reply", session, {
+        data: {
+          suggestion: string;
+          action: string;
+          usage: { estimatedCostUsd: number };
+          budget?: AiBudget;
+        };
+      }>("/api/v1/ai/assist", session, {
         method: "POST",
-        body: JSON.stringify({ conversationId })
+        body: JSON.stringify({
+          conversationId,
+          action: aiAction,
+          tone: aiTone,
+          draft: body || undefined,
+          language: aiAction === "translate" ? aiLanguage : undefined
+        })
       });
       setSuggestion(result.data.suggestion);
-      setBody(result.data.suggestion);
+      if (result.data.budget) setAiBudget(result.data.budget);
+      // Put draft-ready actions into the composer
+      if (
+        aiAction === "suggest_reply" ||
+        aiAction === "improve_draft" ||
+        aiAction === "translate"
+      ) {
+        setBody(result.data.suggestion);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "AI suggestion failed");
+      setError(err instanceof Error ? err.message : "AI assist failed");
     } finally {
       setBusy(false);
     }
   }
+
+  async function startCall() {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await apiFetch<{ data: VoiceCall }>("/api/v1/calls", session, {
+        method: "POST",
+        body: JSON.stringify({ conversationId })
+      });
+      setActiveCall(result.data);
+      if (result.data.status === "failed") {
+        setError(result.data.errorMessage ?? "Call failed");
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start call");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function requestCallPermission() {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch("/api/v1/calls/permission-request", session, {
+        method: "POST",
+        body: JSON.stringify({ conversationId })
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Permission request failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function endCall() {
+    if (!activeCall) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/calls/${activeCall.id}/terminate`, session, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      setActiveCall(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to end call");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function acceptInboundCall() {
+    if (!activeCall) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/calls/${activeCall.id}/accept`, session, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to accept call");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const isLiveCall =
+    activeCall && ["initiated", "ringing", "connecting", "active"].includes(activeCall.status);
 
   return (
     <div>
@@ -156,6 +289,11 @@ export default function ConversationPage() {
               {conversation.serviceWindowOpen ? "Service window open" : "Template required"}
             </span>
             <span className="badge">{conversation.status}</span>
+            {aiBudget ? (
+              <span className={`badge ${aiBudget.remainingUsd > 0 ? "ok" : "warn"}`}>
+                AI ${aiBudget.remainingUsd.toFixed(2)} left
+              </span>
+            ) : null}
           </div>
         ) : null}
       </header>
@@ -204,81 +342,232 @@ export default function ConversationPage() {
               ? ` · last inbound ${new Date(conversation.lastInboundAt).toLocaleString()}`
               : " · no inbound yet"}
           </div>
+          <div className="row">
+            {isLiveCall ? (
+              <>
+                <span className="badge warn">
+                  Call {activeCall!.status}
+                  {activeCall!.direction === "user_initiated" ? " (inbound)" : ""}
+                </span>
+                {activeCall!.status === "ringing" &&
+                activeCall!.direction === "user_initiated" ? (
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void acceptInboundCall()}
+                  >
+                    Accept call
+                  </button>
+                ) : null}
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void endCall()}
+                  style={{ borderColor: "var(--danger)", color: "var(--danger)" }}
+                >
+                  End call
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void startCall()}
+                >
+                  📞 WhatsApp call
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void requestCallPermission()}
+                >
+                  Request call permission
+                </button>
+              </>
+            )}
+          </div>
         </section>
       ) : null}
 
-      <section className="card stack">
-        {!conversation ? <div className="empty">Loading conversation…</div> : null}
+      <div className="grid-2" style={{ alignItems: "start" }}>
+        <section className="card stack">
+          {!conversation ? <div className="empty">Loading conversation…</div> : null}
 
-        <div className="thread" aria-live="polite">
-          {messages.length === 0 ? (
-            <div className="empty">No messages in this thread yet.</div>
-          ) : (
-            messages.map((message) => (
-              <div key={message.id} className={`bubble ${message.direction}`}>
-                {message.body}
-                <small>
-                  {message.direction} · {message.status}
-                  {message.templateName ? ` · template:${message.templateName}` : ""} ·{" "}
-                  {new Date(message.createdAt).toLocaleString()}
-                </small>
-              </div>
-            ))
-          )}
-        </div>
-
-        <form className="composer" onSubmit={sendMessage}>
-          {suggestion ? (
-            <div className="muted" style={{ fontSize: "0.85rem" }}>
-              AI suggestion loaded into composer (metered per organization).
-            </div>
-          ) : null}
-          <label className="label">
-            Reply
-            <textarea
-              className="textarea"
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-              placeholder={
-                conversation?.serviceWindowOpen
-                  ? "Type a free-form reply…"
-                  : "Outside window — pick an approved template"
-              }
-            />
-          </label>
-          <label className="label">
-            Template (required outside 24h window)
-            <select
-              className="select"
-              value={templateName}
-              onChange={(event) => setTemplateName(event.target.value)}
-            >
-              <option value="">None</option>
-              {templates.map((template) => (
-                <option key={template.name} value={template.name}>
-                  {template.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="row">
-            <button className="btn btn-primary" type="submit" disabled={busy}>
-              Send
-            </button>
-            <button
-              className="btn"
-              type="button"
-              disabled={busy}
-              onClick={() => void suggestReply()}
-            >
-              AI suggest reply
-            </button>
-            <button className="btn btn-ghost" type="button" onClick={() => void load()}>
-              Refresh
-            </button>
+          <div className="thread" aria-live="polite">
+            {messages.length === 0 ? (
+              <div className="empty">No messages in this thread yet.</div>
+            ) : (
+              messages.map((message) => (
+                <div key={message.id} className={`bubble ${message.direction}`}>
+                  {message.body}
+                  <small>
+                    {message.direction} · {message.status}
+                    {message.templateName ? ` · template:${message.templateName}` : ""} ·{" "}
+                    {new Date(message.createdAt).toLocaleString()}
+                  </small>
+                </div>
+              ))
+            )}
           </div>
-        </form>
-      </section>
+
+          <form className="composer" onSubmit={sendMessage}>
+            {suggestion &&
+            (aiAction === "summarize" || aiAction === "next_steps") ? (
+              <div
+                className="card"
+                style={{
+                  background: "var(--surface-2)",
+                  fontSize: "0.9rem",
+                  whiteSpace: "pre-wrap"
+                }}
+              >
+                <strong>AI {aiAction.replace("_", " ")}</strong>
+                <div style={{ marginTop: "0.5rem" }}>{suggestion}</div>
+              </div>
+            ) : null}
+            {suggestion &&
+            (aiAction === "suggest_reply" ||
+              aiAction === "improve_draft" ||
+              aiAction === "translate") ? (
+              <div className="muted" style={{ fontSize: "0.85rem" }}>
+                AI result loaded into composer. Edit freely, then send.
+              </div>
+            ) : null}
+            <label className="label">
+              Reply
+              <textarea
+                className="textarea"
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                placeholder={
+                  conversation?.serviceWindowOpen
+                    ? "Type a free-form reply…"
+                    : "Outside window — pick an approved template"
+                }
+              />
+            </label>
+            <label className="label">
+              Template (required outside 24h window)
+              <select
+                className="select"
+                value={templateName}
+                onChange={(event) => setTemplateName(event.target.value)}
+              >
+                <option value="">None</option>
+                {templates.map((template) => (
+                  <option key={template.name} value={template.name}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="row">
+              <button className="btn btn-primary" type="submit" disabled={busy}>
+                Send
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => void load()}>
+                Refresh
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <aside className="stack">
+          <section className="card stack">
+            <h2 style={{ margin: 0 }}>AI assist</h2>
+            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+              Available to every teammate (admin, manager, agent). Usage is metered against the
+              org budget.
+            </p>
+            {aiBudget ? (
+              <div className="muted" style={{ fontSize: "0.85rem" }}>
+                Budget ${aiBudget.budgetUsd.toFixed(2)} · spent ${aiBudget.spentUsd.toFixed(4)} ·{" "}
+                <strong>${aiBudget.remainingUsd.toFixed(4)} remaining</strong> (
+                {aiBudget.percentUsed}%)
+              </div>
+            ) : null}
+            <label className="label">
+              Action
+              <select
+                className="select"
+                value={aiAction}
+                onChange={(e) => setAiAction(e.target.value as AiAction)}
+              >
+                <option value="suggest_reply">Suggest reply</option>
+                <option value="improve_draft">Improve draft</option>
+                <option value="summarize">Summarize / handoff</option>
+                <option value="next_steps">Next steps</option>
+                <option value="translate">Translate</option>
+              </select>
+            </label>
+            <label className="label">
+              Tone
+              <select
+                className="select"
+                value={aiTone}
+                onChange={(e) => setAiTone(e.target.value as AiTone)}
+              >
+                <option value="professional">Professional</option>
+                <option value="friendly">Friendly</option>
+                <option value="empathetic">Empathetic</option>
+                <option value="concise">Concise</option>
+                <option value="formal">Formal</option>
+              </select>
+            </label>
+            {aiAction === "translate" ? (
+              <label className="label">
+                Language
+                <input
+                  className="input"
+                  value={aiLanguage}
+                  onChange={(e) => setAiLanguage(e.target.value)}
+                  placeholder="es, fr, hi…"
+                />
+              </label>
+            ) : null}
+            {aiAction === "improve_draft" ? (
+              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+                Write or paste a draft in the composer first, then run Improve draft.
+              </p>
+            ) : null}
+            <button
+              className="btn btn-primary"
+              type="button"
+              disabled={busy || (aiBudget != null && aiBudget.remainingUsd <= 0)}
+              onClick={() => void runAi()}
+            >
+              Run AI
+            </button>
+          </section>
+
+          <section className="card stack">
+            <h2 style={{ margin: 0 }}>Call history</h2>
+            {callHistory.length === 0 ? (
+              <div className="empty">No WhatsApp calls yet.</div>
+            ) : (
+              <ul className="muted" style={{ margin: 0, paddingLeft: "1.1rem" }}>
+                {callHistory.slice(0, 8).map((call) => (
+                  <li key={call.id} style={{ marginBottom: "0.35rem" }}>
+                    <strong>{call.status}</strong> · {call.direction.replace("_", " ")} ·{" "}
+                    {new Date(call.createdAt).toLocaleString()}
+                    {call.durationSeconds != null ? ` · ${call.durationSeconds}s` : ""}
+                    {call.errorMessage ? ` · ${call.errorMessage}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+              Mock mode simulates calls without WebRTC. Meta mode needs calling enabled on the
+              business number, call permissions, and an SDP offer for live media.
+            </p>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

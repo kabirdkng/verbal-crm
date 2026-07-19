@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.0 — Team AI assist + WhatsApp voice calling (2026-07-20)
+
+### Added
+- Multi-action AI assist for **all roles**: suggest reply, improve draft, summarize, next steps, translate
+- Tone presets + remaining budget on every assist response
+- `POST /api/v1/ai/assist`, `GET /api/v1/ai/budget`; usage list open to agents
+- WhatsApp voice calling module (`voice_calls`): initiate, permission request, accept/reject/terminate
+- Mock + Meta Calling clients; webhook handling for `calls` field
+- Conversation UI: AI assist panel + call controls / history
+- ADR-012
+
 ## 2.1.0 — Platform admin → tenant flow (2026-07-20)
 
 ### Added

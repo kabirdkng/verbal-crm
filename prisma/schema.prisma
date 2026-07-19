@@ -28,6 +28,7 @@ model Organization {
   aiUsage       AiUsage[]
   webhookEvents WebhookEvent[]
   auditEvents   AuditEvent[]
+  voiceCalls    VoiceCall[]
 
   @@map("organizations")
 }
@@ -89,6 +90,7 @@ model Contact {
   conversations Conversation[]
   messages      Message[]
   notes         Note[]
+  voiceCalls    VoiceCall[]
 
   @@unique([organizationId, phone])
   @@index([organizationId])
@@ -110,10 +112,39 @@ model Conversation {
   organization Organization @relation(fields: [organizationId], references: [id])
   contact      Contact      @relation(fields: [contactId], references: [id])
   messages     Message[]
+  voiceCalls   VoiceCall[]
 
   @@index([organizationId, status])
   @@index([organizationId, contactId])
   @@map("conversations")
+}
+
+model VoiceCall {
+  id               String    @id @default(cuid())
+  organizationId   String    @map("organization_id")
+  conversationId   String?   @map("conversation_id")
+  contactId        String    @map("contact_id")
+  phone            String
+  direction        String
+  status           String
+  providerCallId   String?   @map("provider_call_id")
+  agentUserId      String?   @map("agent_user_id")
+  answerSdp        String?   @map("answer_sdp")
+  durationSeconds  Int?      @map("duration_seconds")
+  errorMessage     String?   @map("error_message")
+  startedAt        DateTime? @map("started_at")
+  endedAt          DateTime? @map("ended_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  contact      Contact      @relation(fields: [contactId], references: [id])
+
+  @@index([organizationId, contactId])
+  @@index([organizationId, conversationId])
+  @@index([providerCallId])
+  @@map("voice_calls")
 }
 
 model Message {

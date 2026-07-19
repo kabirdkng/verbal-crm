@@ -12,7 +12,8 @@ export const TENANT_MODELS = new Set([
   "AutomationRule",
   "AiUsage",
   "AuditEvent",
-  "Membership"
+  "Membership",
+  "VoiceCall"
 ]);
 
 type TxClient = Prisma.TransactionClient;

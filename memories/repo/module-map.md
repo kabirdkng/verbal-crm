@@ -12,7 +12,8 @@
 | `src/modules/whatsapp` | webhook, signature, sender, worker |
 | `src/modules/automations` | keyword rules (worker-fired) |
 | `src/modules/broadcasts` | template campaigns |
-| `src/modules/ai` | suggest-reply + usage |
+| `src/modules/ai` | multi-action assist (all roles) + budget/usage |
+| `src/modules/calling` | WhatsApp voice calls (mock/meta), permission request |
 | `src/modules/analytics` | overview metrics |
 | `src/modules/app/container.ts` | DI root |
 | `app/api/v1/*` | routes |

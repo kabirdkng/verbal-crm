@@ -181,6 +181,37 @@ export type FeatureFlagRecord = {
   enabled: boolean;
 };
 
+export type CallDirection = "business_initiated" | "user_initiated";
+export type CallStatus =
+  | "initiated"
+  | "ringing"
+  | "connecting"
+  | "active"
+  | "rejected"
+  | "missed"
+  | "completed"
+  | "failed"
+  | "permission_pending";
+
+export type CallRecord = {
+  id: string;
+  organizationId: string;
+  conversationId: string | null;
+  contactId: string;
+  phone: string;
+  direction: CallDirection;
+  status: CallStatus;
+  providerCallId: string | null;
+  agentUserId: string | null;
+  answerSdp: string | null;
+  durationSeconds: number | null;
+  errorMessage: string | null;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type RateLimitBucketRecord = {
   key: string;
   count: number;
@@ -206,6 +237,7 @@ export type AppStore = {
   domainEvents: DomainEventRecord[];
   featureFlags: FeatureFlagRecord[];
   rateLimitBuckets: RateLimitBucketRecord[];
+  calls: CallRecord[];
 };
 
 function createEmptyStore(): AppStore {
@@ -227,7 +259,8 @@ function createEmptyStore(): AppStore {
     aiUsage: [],
     domainEvents: [],
     featureFlags: [],
-    rateLimitBuckets: []
+    rateLimitBuckets: [],
+    calls: []
   };
 }
 
@@ -326,6 +359,8 @@ export function seedDemoData(store: AppStore = getStore()): void {
     { key: "broadcasts", organizationId: null, enabled: true },
     { key: "automations", organizationId: null, enabled: true },
     { key: "realtime", organizationId: null, enabled: true },
-    { key: "analytics", organizationId: null, enabled: true }
+    { key: "analytics", organizationId: null, enabled: true },
+    { key: "ai_assist", organizationId: null, enabled: true },
+    { key: "whatsapp_calling", organizationId: null, enabled: true }
   );
 }

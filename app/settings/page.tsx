@@ -14,6 +14,12 @@ type Template = {
 
 type Usage = {
   totalEstimatedCostUsd: number;
+  budget?: {
+    budgetUsd: number;
+    spentUsd: number;
+    remainingUsd: number;
+    percentUsed: number;
+  };
   records: Array<{
     id: string;
     feature: string;
@@ -21,6 +27,7 @@ type Usage = {
     tokensIn: number;
     tokensOut: number;
     estimatedCostUsd: number;
+    actorUserId?: string;
     createdAt: string;
   }>;
 };
@@ -281,12 +288,21 @@ export default function SettingsPage() {
 
           <section className="card stack">
             <h2 style={{ margin: 0 }}>AI usage</h2>
+            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+              Visible to all teammates so everyone can use AI effectively within budget.
+            </p>
             {usage ? (
               <>
                 <div className="stat">
                   <span className="muted">Total estimated cost (USD)</span>
                   <strong>${usage.totalEstimatedCostUsd.toFixed(6)}</strong>
                 </div>
+                {usage.budget ? (
+                  <div className="muted" style={{ fontSize: "0.85rem" }}>
+                    Budget ${usage.budget.budgetUsd.toFixed(2)} · remaining $
+                    {usage.budget.remainingUsd.toFixed(4)} ({usage.budget.percentUsed}% used)
+                  </div>
+                ) : null}
                 {usage.records.length === 0 ? (
                   <div className="empty">No AI usage recorded yet.</div>
                 ) : (
@@ -322,17 +338,17 @@ export default function SettingsPage() {
                 )}
               </>
             ) : (
-              <div className="empty">AI usage requires admin/manager role.</div>
+              <div className="empty">Could not load AI usage for this session.</div>
             )}
           </section>
 
           <section className="card stack">
             <h2 style={{ margin: 0 }}>Feature flags</h2>
             <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-              Admin can toggle global flags (broadcasts, automations, analytics, realtime).
+              Admin can toggle global flags (broadcasts, automations, analytics, realtime, ai_assist, whatsapp_calling).
             </p>
             <div className="row">
-              {["broadcasts", "automations", "analytics", "realtime"].map((key) => (
+              {["broadcasts", "automations", "analytics", "realtime", "ai_assist", "whatsapp_calling"].map((key) => (
                 <button
                   key={key}
                   className="btn"
@@ -344,7 +360,7 @@ export default function SettingsPage() {
               ))}
             </div>
             <div className="row">
-              {["broadcasts", "automations", "analytics", "realtime"].map((key) => (
+              {["broadcasts", "automations", "analytics", "realtime", "ai_assist", "whatsapp_calling"].map((key) => (
                 <button
                   key={`off-${key}`}
                   className="btn btn-ghost"

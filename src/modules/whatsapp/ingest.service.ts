@@ -1,5 +1,6 @@
 import type { JobQueue } from "@/lib/queue";
 import { AppError } from "@/lib/errors";
+import type { CallingService } from "@/modules/calling/service";
 import {
   WhatsAppWebhookPayloadSchema,
   type WhatsAppWebhookPayload
@@ -35,7 +36,8 @@ export class WhatsAppIngestService {
     private readonly webhookEvents: WebhookEventsRepository,
     private readonly queue: JobQueue,
     private readonly signatureValidator: SignatureValidator,
-    private readonly config: WhatsAppRuntimeConfig = loadWhatsAppConfig()
+    private readonly config: WhatsAppRuntimeConfig = loadWhatsAppConfig(),
+    private readonly callingService?: CallingService
   ) {}
 
   async ingest(
@@ -56,6 +58,21 @@ export class WhatsAppIngestService {
         "Invalid WhatsApp webhook payload",
         parsed.error.flatten()
       );
+    }
+
+    // Voice calling webhooks (field=calls) — update call records, no message job.
+    const callHandled = await this.handleCallEvents(
+      parsed.data,
+      organizationIdHeader
+    );
+    if (callHandled) {
+      return {
+        accepted: true,
+        duplicate: false,
+        eventId: null,
+        jobId: null,
+        organizationId: callHandled
+      };
     }
 
     const extracted = this.extractInbound(parsed.data);
@@ -113,6 +130,80 @@ export class WhatsAppIngestService {
       jobId: job.id,
       organizationId
     };
+  }
+
+  /**
+   * Handle Cloud API "calls" field webhooks.
+   * Returns organizationId when a call event was processed.
+   */
+  private async handleCallEvents(
+    payload: WhatsAppWebhookPayload,
+    organizationIdHeader: string | null
+  ): Promise<string | null> {
+    if (!this.callingService) {
+      return null;
+    }
+
+    for (const entry of payload.entry ?? []) {
+      for (const change of entry.changes ?? []) {
+        const field = change.field;
+        const value = change.value;
+        const phoneNumberId = value.metadata?.phone_number_id;
+        const organizationId = resolveOrganizationId({
+          config: this.config,
+          phoneNumberId,
+          organizationIdHeader,
+          payloadOrganizationId: payload.organizationId
+        });
+
+        const hasCalls = Array.isArray(value.calls) && value.calls.length > 0;
+        const callStatuses = (value.statuses ?? []).filter(
+          (s) => !s.type || s.type === "call"
+        );
+        const hasCallStatuses = callStatuses.length > 0 && (field === "calls" || hasCalls);
+
+        if (!hasCalls && !hasCallStatuses && field !== "calls") {
+          continue;
+        }
+
+        for (const call of value.calls ?? []) {
+          if (!call.id) continue;
+          const statusVal = Array.isArray(call.status)
+            ? call.status[0]
+            : call.status;
+          await this.callingService.handleProviderEvent({
+            organizationId,
+            providerCallId: call.id,
+            event: call.event ?? "connect",
+            status: statusVal,
+            direction: call.direction,
+            phone: call.from ?? call.to,
+            answerSdp: call.session?.sdp ?? null,
+            durationSeconds: call.duration ?? null,
+            startTime: call.start_time
+              ? new Date(Number(call.start_time) * 1000)
+              : null,
+            endTime: call.end_time ? new Date(Number(call.end_time) * 1000) : null
+          });
+        }
+
+        for (const status of callStatuses) {
+          if (!status.id || status.type === "message") continue;
+          if (status.type && status.type !== "call") continue;
+          await this.callingService.handleProviderEvent({
+            organizationId,
+            providerCallId: status.id,
+            event: "status",
+            status: status.status,
+            phone: status.recipient_id
+          });
+        }
+
+        return organizationId;
+      }
+    }
+
+    return null;
   }
 
   private extractInbound(payload: WhatsAppWebhookPayload): {
