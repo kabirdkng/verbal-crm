@@ -1,18 +1,28 @@
 # Changelog
 
-## 0.1.0 — Phase 1 platform (2026-07-20)
+## 1.0.0 — Full platform Phases 1–5 (2026-07-20)
 
-### Added
-- Multi-tenant contacts, conversations, messages APIs
-- WhatsApp webhook verification, signature hook, idempotent ingest + worker
-- Templates and 24-hour service window enforcement
-- AI suggest-reply with per-org usage metering and budget gate
-- Audit log API and dashboard views
-- Dashboard UI: overview, contacts, inbox, conversation thread, settings
-- Agent harness (`.github/agents`, skills, instructions)
-- Product brief, ADR-001, sprint plan, UAT packet, release checklist
-- Repo memory under `memories/repo`
-- CI workflow (test + build)
+### Phase 2 — Identity & persistence
+- Register/login/logout, cookie sessions, org members, AI budget settings
+- Prisma schema + RLS SQL for Postgres/Neon cutover
 
-### Notes
-- Persistence is in-memory for local/demo; not multi-instance production ready
+### Phase 3 — CRM operations
+- Contact notes, conversation assignment/status
+- Broadcast campaigns (template + optional tag)
+- Inbound keyword automations (worker path)
+
+### Phase 4 — Insights & realtime
+- Analytics overview API/UI
+- SSE domain event stream
+- Org budget UI
+
+### Phase 5 — Production hardening
+- Auth rate limits, feature flags API
+- Worker drain endpoint
+- Full release pack and ADRs 002–005
+
+### Quality
+- 22 automated tests; CI pipeline; build green
+
+## 0.1.0 — Phase 1 platform
+- Contacts, conversations, WhatsApp, templates, AI metering, audit, dashboard

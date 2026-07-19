@@ -1,28 +1,21 @@
-# Build and test (verified 2026-07-20)
+# Build and test (verified 2026-07-20, Phases 1–5)
 
 ## Commands
 ```bash
 npm install
-npm run dev      # http://localhost:3000
-npm test         # vitest run — 17 tests
-npm run build    # next build
+npm run dev
+npm test         # 22 tests
+npm run build
 ```
 
+## Demo credentials
+- admin@demo.local / demo-password
+- org_demo
+
 ## CI
-- Workflow: `.github/workflows/ci.yml` — `npm ci` → `npm test` → `npm run build`.
+`.github/workflows/ci.yml` — npm ci → test → build
 
-## Test layout
-- `src/**/*.test.ts` only (see `vitest.config.ts`).
-- Path alias `@/*` → `src/*`.
-- Always `resetStore()` in `beforeEach` when touching repositories/store.
-
-## Demo session defaults
-- Org: `org_demo`
-- Role: `admin` (UI sidebar)
-- Seeded template: `welcome_followup` (approved) for `org_demo` via `seedDemoData()`.
-
-## Env (no secrets in repo)
-- Copy `.env.example` → `.env.local` when needed.
-- `WHATSAPP_VERIFY_TOKEN` default `verbal-crm-dev`
-- `WHATSAPP_APP_SECRET` empty → signature soft-pass (dev only)
-- `AI_ORG_BUDGET_USD` default `10`
+## Test rules
+- `src/**/*.test.ts`
+- `resetStore()` in beforeEach for store-backed tests
+- Header auth still used in unit tests

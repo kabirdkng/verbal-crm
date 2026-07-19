@@ -1,23 +1,21 @@
-# Module map
+# Module map (Phases 1–5)
 
 | Path | Responsibility |
 |------|----------------|
-| `src/lib/*` | auth, errors, audit, store, queue, events, service-window, phone, ids |
-| `src/modules/contacts` | contact CRUD contracts/service/repo |
-| `src/modules/conversations` | inbox threads + serviceWindowOpen |
-| `src/modules/messages` | list/send outbound; window + template rules |
-| `src/modules/templates` | approved template registry |
-| `src/modules/whatsapp` | signature, ingest, worker, mock sender |
-| `src/modules/ai` | mock provider, usage repo, suggest service |
-| `src/modules/audit` | list audit events API |
-| `src/modules/app/container.ts` | DI / composition root |
-| `src/ui/*` | session, shell, api client |
-| `app/api/v1/*` | thin route handlers |
-| `app/{contacts,inbox,settings}` | dashboard pages |
-| `docs/product` | product briefs |
-| `docs/architecture` | ADRs + sprint plans |
-| `docs/uat` | UAT packets |
-| `docs/release` | checklists + delivery verdicts |
-| `memories/repo` | operational memory for future agents |
-| `.github/agents` | role agents |
-| `.github/skills` | delivery / tenant / webhook skills |
+| `src/lib/*` | auth, password, rate-limit, feature-flags, store, queue, events, service-window |
+| `src/modules/identity` | register/login/session/org settings/members |
+| `src/modules/contacts` | contacts + tags |
+| `src/modules/notes` | contact notes |
+| `src/modules/conversations` | inbox + assign + status |
+| `src/modules/messages` | inbound/outbound + window rules |
+| `src/modules/templates` | message templates |
+| `src/modules/whatsapp` | webhook, signature, sender, worker |
+| `src/modules/automations` | keyword rules (worker-fired) |
+| `src/modules/broadcasts` | template campaigns |
+| `src/modules/ai` | suggest-reply + usage |
+| `src/modules/analytics` | overview metrics |
+| `src/modules/app/container.ts` | DI root |
+| `app/api/v1/*` | routes |
+| `app/{login,register,contacts,inbox,broadcasts,automations,analytics,settings}` | UI |
+| `prisma/schema.prisma` + `rls.sql` | Postgres target |
+| `memories/repo` | agent operational memory |

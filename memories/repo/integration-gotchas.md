@@ -1,25 +1,22 @@
 # Integration gotchas
 
+## Auth
+- Cookie session wins when present and unexpired.
+- Header auth disabled in production unless AUTH_ALLOW_HEADERS=true.
+- SSE EventSource cannot send custom headers — needs cookie session for live stream.
+
 ## WhatsApp
-- Delivery is at-least-once; always key idempotency on provider message `id`.
-- Duplicate ingest returns `accepted: true, duplicate: true` and does not re-enqueue.
-- Worker also no-ops if message with same `providerMessageId` already exists.
-- Phase 1 route drains the in-process queue after building a 200 ack for local demo reliability; production must use async workers only.
-- Meta verify: GET `hub.mode=subscribe` + matching `hub.verify_token` returns plain-text `hub.challenge`.
-- Simplified test payload `{ organizationId, message: { id, from, text, profileName } }` is supported alongside Meta envelope.
+- Idempotency key = provider message id.
+- Automations run only in worker after persist.
+- Phase 1 drain-after-ack remains for local demo; production should use `/workers/drain` or managed queue.
 
-## Tenant / store
-- In-memory store is process-local — not safe across serverless instances or multi-replica.
-- Hot reload can reset or retain store depending on `globalThis` survival; do not rely on data across restarts.
-- Cross-tenant reads return NOT_FOUND (not empty list with leak) for get-by-id paths.
-
-## Service window
-- Window opens only after inbound (`lastInboundAt`). Brand-new outbound threads need templates until first inbound.
+## Broadcasts
+- Only approved templates; optional tag filter on contact.tags.
 
 ## AI
-- Budget check uses cumulative `estimatedCostUsd` per organization before calling provider.
-- Agents can suggest-reply; only admin/manager can list `/api/v1/ai/usage`.
+- Budget read from Organization record when present.
+- Agents can suggest; usage list is admin/manager.
 
-## UI
-- Client calls must send auth headers via `src/ui/api-client.ts` + session context.
-- Webhook simulate on Inbox uses `x-organization-id` only (no user RBAC on public webhook).
+## Store
+- In-memory not multi-instance safe.
+- ensureDemoSeed hashes demo password once per process; resetStore in tests clears data but seed flag may skip re-hash until process restart — tests create their own users.
