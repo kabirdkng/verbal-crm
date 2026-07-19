@@ -80,6 +80,19 @@ x-role: admin
 
 Start with **Delivery Orchestrator**. Follow `docs/DEVELOPMENT_HARNESS.md` and keep `memories/repo` + git history updated every phase.
 
-## Production cutover
+## Staging / production deploy
 
-See `docs/release/FULL_PLATFORM_RELEASE.md`.
+**Guide:** [`docs/release/STAGING_DEPLOY.md`](docs/release/STAGING_DEPLOY.md)
+
+```bash
+# Validate env before ship
+PERSISTENCE_MODE=postgres QUEUE_MODE=redis npm run deploy:check
+
+# Link & deploy (requires vercel login)
+npx vercel
+```
+
+Stack: **Vercel** (app + cron drain) · **Neon** (Postgres) · **Upstash** (Redis) · Meta + xAI secrets in Vercel env.
+
+Also: `docs/release/FULL_PLATFORM_RELEASE.md`
+

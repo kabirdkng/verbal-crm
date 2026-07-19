@@ -13,6 +13,8 @@
 - WhatsApp: `WHATSAPP_MODE=mock|meta`; production requires signature; map `phone_number_id` → org; webhook is ack-and-enqueue (no inline drain in prod)
 - Worker: `npm run worker` / Docker profile `worker` drains Redis queue; HTTP `/api/v1/workers/drain` for cron
 - AI: `AI_MODE=mock|xai`; xAI uses `XAI_API_KEY` + `https://api.x.ai/v1` + model `grok-4.5`; budget enforced per org
+- Staging: Vercel + Neon + Upstash; webhook inline drain off; cron or docker worker drains Redis
+
 
 
 

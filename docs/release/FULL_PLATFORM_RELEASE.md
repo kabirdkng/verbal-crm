@@ -13,15 +13,15 @@
 - Organization: `org_demo`
 
 ## Production cutover checklist
-1. Provision Neon Postgres; set `DATABASE_URL`
-2. `npx prisma migrate dev` / deploy migrations
-3. Apply `prisma/rls.sql`
-4. Implement Prisma repository adapters (interfaces already stable)
-5. Set `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, real Graph credentials
-6. Set `WORKER_DRAIN_SECRET`; schedule drain or use managed queue
-7. Set `AUTH_ALLOW_HEADERS=false` in production
-8. Replace mock AI/WhatsApp adapters with live providers
-9. Move rate limits to Redis/Upstash for multi-instance
+1. Follow **`docs/release/STAGING_DEPLOY.md`** (Vercel + Neon + Upstash)
+2. `DATABASE_URL` (app/pooled) + `DATABASE_URL_ADMIN` (migrate)
+3. `npx prisma migrate deploy` + seed; RLS is in migrations
+4. `QUEUE_MODE=redis` + Upstash `REDIS_URL`
+5. `WHATSAPP_MODE=meta` + secrets; `WHATSAPP_INLINE_DRAIN=false`
+6. `CRON_SECRET` / `WORKER_DRAIN_SECRET` for drain cron
+7. `AUTH_ALLOW_HEADERS=false`
+8. `AI_MODE=xai` + `XAI_API_KEY`
+9. `npm run deploy:check` then `vercel deploy`
 
 ## Rollback
 - Application-only: redeploy previous artifact

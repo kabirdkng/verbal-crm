@@ -24,3 +24,10 @@ npm run build
 
 ## Pitfall
 If integration tests “see” cross-tenant rows, DATABASE_URL is probably still the superuser.
+
+## Staging deploy
+- Guide: `docs/release/STAGING_DEPLOY.md`
+- `vercel.json` cron → `/api/v1/workers/drain` (auth via CRON_SECRET)
+- `npm run deploy:check` validates env
+- Neon pooled URL → DATABASE_URL; direct → DATABASE_URL_ADMIN for migrate
+

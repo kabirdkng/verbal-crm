@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.0 — Staging deploy pack (2026-07-20)
+
+### Added
+- `vercel.json` with minute cron → worker drain
+- Drain route accepts Vercel `CRON_SECRET`
+- `.env.staging.example` + `docs/release/STAGING_DEPLOY.md`
+- `npm run deploy:check` env validator
+- Optional GitHub Action for Vercel preview deploy
+- ADR-010 staging topology
+
 ## 1.5.0 — SpaceXAI / xAI reply suggestions (2026-07-20)
 
 ### Added

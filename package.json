@@ -1,6 +1,6 @@
 {
   "name": "verbal-crm",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "deploy:check": "node scripts/deploy-check.mjs",
     "worker": "tsx scripts/worker.ts",
     "worker:once": "tsx scripts/worker.ts --once",
     "docker:up": "docker compose up -d postgres redis",

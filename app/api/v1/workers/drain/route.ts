@@ -7,12 +7,19 @@ import { processBatch } from "@/workers/whatsapp-worker";
  * Prefer the long-running `npm run worker` process for Docker/production.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const expected = process.env.WORKER_DRAIN_SECRET ?? "dev-worker-secret";
+  // Accept WORKER_DRAIN_SECRET or Vercel Cron's CRON_SECRET (Bearer).
+  const secrets = [
+    process.env.WORKER_DRAIN_SECRET,
+    process.env.CRON_SECRET,
+    process.env.NODE_ENV === "production" ? undefined : "dev-worker-secret"
+  ].filter((value): value is string => Boolean(value && value.length > 0));
+
   const provided =
     request.headers.get("x-worker-secret") ??
-    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
+    "";
 
-  if (!provided || provided !== expected) {
+  if (!provided || !secrets.includes(provided)) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Invalid worker secret" } },
       { status: 403 }
