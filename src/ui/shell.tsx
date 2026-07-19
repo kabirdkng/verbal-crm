@@ -3,25 +3,43 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { apiFetch } from "@/ui/api-client";
 import { useSession } from "@/ui/session";
 
 const links = [
   { href: "/", label: "Overview" },
   { href: "/contacts", label: "Contacts" },
   { href: "/inbox", label: "Inbox" },
+  { href: "/broadcasts", label: "Broadcasts" },
+  { href: "/automations", label: "Automations" },
+  { href: "/analytics", label: "Analytics" },
   { href: "/settings", label: "Settings" }
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { session, setSession } = useSession();
+  const { session, setSession, authenticated, refreshMe } = useSession();
+  const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
+
+  if (isAuthPage) {
+    return <main className="main">{children}</main>;
+  }
+
+  async function logout() {
+    try {
+      await apiFetch("/api/v1/auth/logout", session, { method: "POST" });
+    } catch {
+      // ignore
+    }
+    await refreshMe();
+  }
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
           <strong>Verbal CRM</strong>
-          <span>Phase 1 platform</span>
+          <span>Phases 1–5 complete</span>
         </div>
         <nav className="nav" aria-label="Primary">
           {links.map((link) => {
@@ -44,10 +62,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="session-bar">
           <div className="muted" style={{ fontSize: "0.8rem" }}>
-            Auth context (Phase 1 headers)
+            {authenticated ? "Cookie session" : "Demo header session"}
+          </div>
+          <div style={{ fontSize: "0.85rem" }}>
+            <strong>{session.name ?? session.userId}</strong>
+            <div className="muted">{session.email ?? "—"}</div>
+            <div className="muted">
+              {session.organizationId} · {session.role}
+            </div>
           </div>
           <label className="label">
-            Organization
+            Organization (header override)
             <input
               className="input"
               value={session.organizationId}
@@ -58,16 +83,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
           </label>
           <label className="label">
-            User
-            <input
-              className="input"
-              value={session.userId}
-              onChange={(event) => setSession({ ...session, userId: event.target.value })}
-              aria-label="User ID"
-            />
-          </label>
-          <label className="label">
-            Role
+            Role override
             <select
               className="select"
               value={session.role}
@@ -84,6 +100,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <option value="agent">agent</option>
             </select>
           </label>
+          <div className="row">
+            <Link className="btn" href="/login">
+              Login
+            </Link>
+            <button className="btn btn-ghost" type="button" onClick={() => void logout()}>
+              Logout
+            </button>
+          </div>
         </div>
       </aside>
       <main className="main">{children}</main>

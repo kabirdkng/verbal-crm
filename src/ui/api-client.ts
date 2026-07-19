@@ -2,6 +2,8 @@ export type SessionContext = {
   userId: string;
   organizationId: string;
   role: "admin" | "manager" | "agent";
+  email?: string;
+  name?: string;
 };
 
 export type ApiErrorBody = {
@@ -14,18 +16,25 @@ export type ApiErrorBody = {
 
 export async function apiFetch<T>(
   path: string,
-  session: SessionContext,
+  session: SessionContext | null,
   init: RequestInit = {}
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("content-type", "application/json");
-  headers.set("x-user-id", session.userId);
-  headers.set("x-organization-id", session.organizationId);
-  headers.set("x-role", session.role);
+  if (!headers.has("content-type") && init.body) {
+    headers.set("content-type", "application/json");
+  }
+
+  // Cookie session preferred; headers retained for demo/tools when AUTH_ALLOW_HEADERS is on.
+  if (session) {
+    headers.set("x-user-id", session.userId);
+    headers.set("x-organization-id", session.organizationId);
+    headers.set("x-role", session.role);
+  }
 
   const response = await fetch(path, {
     ...init,
-    headers
+    headers,
+    credentials: "include"
   });
 
   const body = (await response.json().catch(() => ({}))) as T & ApiErrorBody;
@@ -37,7 +46,9 @@ export async function apiFetch<T>(
 }
 
 export const defaultSession: SessionContext = {
-  userId: "u_demo_agent",
+  userId: "u_demo_admin",
   organizationId: "org_demo",
-  role: "admin"
+  role: "admin",
+  email: "admin@demo.local",
+  name: "Demo Admin"
 };
