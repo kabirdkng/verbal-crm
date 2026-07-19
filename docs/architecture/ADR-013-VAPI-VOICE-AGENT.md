@@ -27,8 +27,21 @@ Vapi path:
 1. Load tenant voice config.
 2. Build transient assistant from context + contact name + recent CRM thread.
 3. `POST https://api.vapi.ai/call` with `phoneNumberId` + `customer.number` + `assistant` (or `assistantId` + overrides).
-4. Store `voice_calls` with `channel=vapi`, `provider=vapi`.
-5. Optional end-of-call webhook → summary on call + conversation message.
+4. Store `voice_calls` with `channel=vapi`, `provider=vapi`, `direction=business_initiated`.
+5. End-of-call webhook → summary on call + conversation message.
+
+### Inbound calls
+Customers dial the tenant’s Vapi phone number. Configure the number’s **Server URL** to:
+
+`POST /api/v1/webhooks/vapi`
+
+1. Vapi sends `assistant-request` with `phoneNumberId` + caller `customer.number`.
+2. We resolve tenant via `voice_agent_configs.vapi_phone_number_id` or `VAPI_PHONE_NUMBER_MAP`.
+3. Find/create contact + open conversation; create `voice_calls` with `direction=user_initiated`.
+4. Respond with transient `assistant` (tenant persona/knowledge + CRM thread) or `assistantId` + overrides.
+5. `status-update` / `end-of-call-report` update lifecycle + summary (same as outbound).
+
+Local mock: `POST /api/v1/calls/vapi/simulate-inbound` `{ "from": "+1…" }`.
 
 ### Chat parity
 `AiService.assist` injects the same tenant persona/knowledge into instruction so inbox AI replies match the voice agent.

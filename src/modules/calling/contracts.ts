@@ -43,6 +43,11 @@ export const CallActionRequestSchema = z.object({
   sdpType: z.enum(["answer", "offer"]).optional()
 });
 
+export const SimulateInboundVapiRequestSchema = z.object({
+  from: z.string().min(5).max(32),
+  contactName: z.string().trim().min(1).max(120).optional()
+});
+
 export const CallResponseSchema = z.object({
   data: z.object({
     id: z.string(),

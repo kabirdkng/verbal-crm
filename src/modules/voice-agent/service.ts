@@ -89,6 +89,10 @@ export class VoiceAgentService {
       vapiAssistantId: config.vapiAssistantId ?? runtime.assistantId ?? null,
       vapiMode: runtime.mode,
       platformPhoneConfigured: Boolean(runtime.phoneNumberId || config.vapiPhoneNumberId),
+      /** Both directions are supported when enabled + phone number is set */
+      supportsInbound: Boolean(config.enabled),
+      supportsOutbound: Boolean(config.enabled),
+      webhookPath: "/api/v1/webhooks/vapi",
       updatedAt: config.updatedAt.toISOString()
     };
   }

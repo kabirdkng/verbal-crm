@@ -47,16 +47,27 @@ export function buildTransientAssistant(input: {
   contactName?: string;
   conversationContext?: string;
   callId: string;
+  /** inbound | outbound — adjusts system framing */
+  direction?: "inbound" | "outbound";
+  callerPhone?: string;
 }): VapiTransientAssistant {
   const { config } = input;
+  const direction = input.direction ?? "outbound";
+  const directionHint =
+    direction === "inbound"
+      ? "This is an INBOUND call — the customer dialed your business number. Greet them warmly and help with their reason for calling."
+      : "This is an OUTBOUND call — you (the business) initiated the call. Confirm it is a good time to talk, then help.";
+
   const system = [
     config.systemPrompt,
     "",
+    directionHint,
     `Company: ${config.companyName}`,
     `Agent name: ${config.agentName}`,
     `Language: ${config.language}`,
     config.knowledgeBase ? `\nBusiness knowledge:\n${config.knowledgeBase}` : null,
     input.contactName ? `\nYou are speaking with: ${input.contactName}` : null,
+    input.callerPhone ? `\nCaller phone: ${input.callerPhone}` : null,
     input.conversationContext
       ? `\nRecent CRM conversation context:\n${input.conversationContext}`
       : null,
@@ -66,9 +77,14 @@ export function buildTransientAssistant(input: {
     .filter(Boolean)
     .join("\n");
 
+  const firstMessage =
+    direction === "inbound"
+      ? config.firstMessage
+      : config.firstMessage;
+
   return {
     name: `${config.agentName} (${config.companyName})`.slice(0, 80),
-    firstMessage: config.firstMessage,
+    firstMessage,
     model: {
       provider: "openai",
       model: config.model || "gpt-4o",
@@ -80,7 +96,8 @@ export function buildTransientAssistant(input: {
     },
     metadata: {
       verbalCallId: input.callId,
-      organizationId: config.organizationId
+      organizationId: config.organizationId,
+      direction
     }
   };
 }

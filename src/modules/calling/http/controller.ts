@@ -107,4 +107,17 @@ export class CallingController {
       return toErrorEnvelope(error);
     }
   }
+
+  async simulateInboundVapi(request: JsonRequest): Promise<JsonResponse> {
+    try {
+      return await withTenantAuth(request.headers, async (context) => {
+        const payload = await request.json();
+        const data = await this.service.simulateInboundVapi(context, payload);
+        const body = CallResponseSchema.parse({ data });
+        return { status: 201, body };
+      });
+    } catch (error) {
+      return toErrorEnvelope(error);
+    }
+  }
 }

@@ -56,6 +56,9 @@ type VoiceAgent = {
   vapiAssistantId: string | null;
   vapiMode: "mock" | "vapi";
   platformPhoneConfigured: boolean;
+  supportsInbound?: boolean;
+  supportsOutbound?: boolean;
+  webhookPath?: string;
 };
 
 export default function SettingsPage() {
@@ -75,6 +78,8 @@ export default function SettingsPage() {
   const [voice, setVoice] = useState<VoiceAgent | null>(null);
   const [vapiApiKeyInput, setVapiApiKeyInput] = useState("");
   const [voiceSaved, setVoiceSaved] = useState<string | null>(null);
+  const [simulateFrom, setSimulateFrom] = useState("+15551239999");
+  const [simulateNote, setSimulateNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -323,9 +328,16 @@ export default function SettingsPage() {
           <section className="card stack">
             <h2 style={{ margin: 0 }}>AI voice agent (Vapi)</h2>
             <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-              Tenant context powers AI voice calls to contacts and chat assist replies. Mode:{" "}
+              Tenant context powers <strong>inbound</strong> (customers call you) and{" "}
+              <strong>outbound</strong> (you call contacts) AI voice, plus chat assist. Mode:{" "}
               <strong>{voice?.vapiMode ?? "mock"}</strong>
               {voice?.platformPhoneConfigured ? " · phone number configured" : " · set phone number id"}
+              {voice?.webhookPath ? (
+                <>
+                  {" "}
+                  · webhook <code>{voice.webhookPath}</code>
+                </>
+              ) : null}
             </p>
             {voiceSaved ? (
               <div className="card" style={{ borderColor: "#1f6b57", margin: 0 }}>
@@ -471,6 +483,58 @@ export default function SettingsPage() {
             ) : (
               <div className="empty">Voice agent settings unavailable for this session.</div>
             )}
+            {voice?.vapiMode === "mock" || true ? (
+              <div className="stack" style={{ marginTop: "0.5rem" }}>
+                <h3 style={{ margin: 0 }}>Simulate inbound call (mock / local)</h3>
+                <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+                  Pretend a customer dialed your Vapi number. Creates contact, conversation, and an
+                  inbound AI call record.
+                </p>
+                {simulateNote ? (
+                  <div className="card" style={{ borderColor: "#1f6b57", margin: 0 }}>
+                    {simulateNote}
+                  </div>
+                ) : null}
+                <label className="label">
+                  Caller phone
+                  <input
+                    className="input"
+                    value={simulateFrom}
+                    onChange={(e) => setSimulateFrom(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    void (async () => {
+                      setSimulateNote(null);
+                      setError(null);
+                      try {
+                        const result = await apiFetch<{
+                          data: { id: string; status: string; conversationId: string | null };
+                        }>("/api/v1/calls/vapi/simulate-inbound", session, {
+                          method: "POST",
+                          body: JSON.stringify({ from: simulateFrom })
+                        });
+                        setSimulateNote(
+                          `Inbound AI call ${result.data.status} · id ${result.data.id}` +
+                            (result.data.conversationId
+                              ? ` · open inbox conversation ${result.data.conversationId}`
+                              : "")
+                        );
+                      } catch (err) {
+                        setError(
+                          err instanceof Error ? err.message : "Simulate inbound failed"
+                        );
+                      }
+                    })();
+                  }}
+                >
+                  Simulate inbound Vapi call
+                </button>
+              </div>
+            ) : null}
           </section>
 
           <section className="card stack">

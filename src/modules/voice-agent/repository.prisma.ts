@@ -35,6 +35,13 @@ export class PrismaVoiceAgentConfigRepository implements VoiceAgentConfigReposit
     return row ? mapRow(row) : null;
   }
 
+  async findByVapiPhoneNumberId(phoneNumberId: string): Promise<VoiceAgentConfigRecord | null> {
+    const row = await getPrismaAdmin().voiceAgentConfig.findFirst({
+      where: { vapiPhoneNumberId: phoneNumberId }
+    });
+    return row ? mapRow(row) : null;
+  }
+
   async getOrCreate(
     organizationId: string,
     companyName?: string

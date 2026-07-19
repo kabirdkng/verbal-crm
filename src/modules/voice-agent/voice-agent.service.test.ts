@@ -101,4 +101,87 @@ describe("Voice agent + Vapi calling", () => {
       service.update(agent, { agentName: "Nope" })
     ).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
   });
+
+  it("handles inbound assistant-request with tenant context", async () => {
+    const contacts = new InMemoryContactsRepository();
+    const conversations = new InMemoryConversationsRepository();
+    const messages = new InMemoryMessagesRepository();
+    const voiceRepo = new InMemoryVoiceAgentConfigRepository();
+    const voiceService = new VoiceAgentService(voiceRepo, new InMemoryAuditLogger());
+    await voiceService.update(admin, {
+      knowledgeBase: "We ship in 2 days.",
+      firstMessage: "Thanks for calling Demo!",
+      vapiPhoneNumberId: "pn_demo_inbound"
+    });
+
+    const calling = new CallingService(
+      new InMemoryCallsRepository(),
+      new MockWhatsAppCallingClient(),
+      conversations,
+      contacts,
+      messages,
+      new InMemoryAuditLogger(),
+      undefined,
+      new MockVapiClient(),
+      voiceService,
+      voiceRepo
+    );
+
+    const result = await calling.handleVapiWebhook({
+      message: {
+        type: "assistant-request",
+        call: {
+          id: "vapi_live_in_1",
+          type: "inboundPhoneCall",
+          phoneNumberId: "pn_demo_inbound",
+          customer: { number: "+15551112222", name: "Jordan" }
+        }
+      }
+    });
+
+    expect(result.kind).toBe("assistant-request");
+    if (result.kind === "assistant-request") {
+      expect(result.vapiResponse.assistant || result.vapiResponse.assistantId).toBeTruthy();
+      const assistant = result.vapiResponse.assistant as
+        | { firstMessage?: string; model?: { messages?: Array<{ content: string }> } }
+        | undefined;
+      if (assistant) {
+        expect(assistant.firstMessage).toContain("Thanks for calling");
+        expect(assistant.model?.messages?.[0]?.content).toMatch(/INBOUND|inbound/i);
+        expect(assistant.model?.messages?.[0]?.content).toContain("ship in 2 days");
+      }
+    }
+
+    const listed = await calling.list(admin, {});
+    expect(listed.some((c) => c.direction === "user_initiated" && c.channel === "vapi")).toBe(
+      true
+    );
+  });
+
+  it("simulates inbound Vapi call for local demos", async () => {
+    const contacts = new InMemoryContactsRepository();
+    const conversations = new InMemoryConversationsRepository();
+    const messages = new InMemoryMessagesRepository();
+    const voiceRepo = new InMemoryVoiceAgentConfigRepository();
+    const voiceService = new VoiceAgentService(voiceRepo, new InMemoryAuditLogger());
+    await voiceService.update(admin, { enabled: true });
+
+    const calling = new CallingService(
+      new InMemoryCallsRepository(),
+      new MockWhatsAppCallingClient(),
+      conversations,
+      contacts,
+      messages,
+      new InMemoryAuditLogger(),
+      undefined,
+      new MockVapiClient(),
+      voiceService,
+      voiceRepo
+    );
+
+    const call = await calling.simulateInboundVapi(agent, { from: "+15554443333" });
+    expect(call.channel).toBe("vapi");
+    expect(call.direction).toBe("user_initiated");
+    expect(call.status).toBe("active");
+  });
 });

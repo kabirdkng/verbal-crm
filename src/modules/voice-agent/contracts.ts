@@ -37,6 +37,9 @@ export const VoiceAgentConfigResponseSchema = z.object({
     vapiAssistantId: z.string().nullable(),
     vapiMode: z.enum(["mock", "vapi"]),
     platformPhoneConfigured: z.boolean(),
+    supportsInbound: z.boolean(),
+    supportsOutbound: z.boolean(),
+    webhookPath: z.string(),
     updatedAt: z.string()
   })
 });

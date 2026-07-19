@@ -13,8 +13,17 @@ import type { CallRecord, CallsRepository } from "@/modules/calling/repository";
 import type { ContactsRepository } from "@/modules/contacts/repository";
 import type { ConversationsRepository } from "@/modules/conversations/repository";
 import type { MessagesRepository } from "@/modules/messages/repository";
-import type { VapiClient } from "@/modules/voice-agent/adapters/vapi";
+import {
+  buildTransientAssistant,
+  type VapiClient
+} from "@/modules/voice-agent/adapters/vapi";
+import {
+  loadVapiConfig,
+  resolveOrgFromVapiPhoneNumberId
+} from "@/modules/voice-agent/config";
 import type { VoiceAgentService } from "@/modules/voice-agent/service";
+import type { VoiceAgentConfigRepository } from "@/modules/voice-agent/repository";
+import { createId } from "@/lib/ids";
 
 function serializeCall(call: CallRecord) {
   return {
@@ -39,6 +48,20 @@ function serializeCall(call: CallRecord) {
   };
 }
 
+export type VapiWebhookResult =
+  | {
+      kind: "assistant-request";
+      /** Body returned directly to Vapi (assistant | assistantId | error) */
+      vapiResponse: Record<string, unknown>;
+      callId?: string;
+    }
+  | {
+      kind: "ack";
+      ok: true;
+      callId?: string;
+      direction?: string;
+    };
+
 export class CallingService {
   constructor(
     private readonly calls: CallsRepository,
@@ -49,7 +72,8 @@ export class CallingService {
     private readonly auditLogger: AuditLogger,
     private readonly eventBus?: EventBus,
     private readonly vapiClient?: VapiClient,
-    private readonly voiceAgentService?: VoiceAgentService
+    private readonly voiceAgentService?: VoiceAgentService,
+    private readonly voiceAgentConfigRepository?: VoiceAgentConfigRepository
   ) {}
 
   private requireCaller(context: AuthContext): void {
@@ -626,28 +650,121 @@ export class CallingService {
   }
 
   /**
-   * Vapi server webhook (end-of-call-report, status-update).
+   * Resolve tenant + CRM contact/conversation for a Vapi phone interaction.
    */
-  async handleVapiWebhook(payload: unknown): Promise<{ ok: true; callId?: string }> {
+  private async ensureVapiCrmContext(input: {
+    organizationId: string;
+    phone: string;
+    contactName?: string;
+    providerCallId?: string | null;
+    direction: "user_initiated" | "business_initiated";
+    status?: CallStatus;
+  }): Promise<CallRecord> {
+    if (input.providerCallId) {
+      const existing = await this.calls.findByProviderCallId(input.providerCallId);
+      if (existing) return existing;
+    }
+
+    const contact = await this.contacts.findOrCreateByPhone(
+      input.organizationId,
+      input.phone,
+      input.contactName ?? input.phone
+    );
+
+    // Prefer open conversation for this contact
+    const existingConvos = await this.conversations.listByOrganization(input.organizationId);
+    let conversation = existingConvos.find(
+      (c) => c.contactId === contact.id && c.status !== "closed"
+    );
+    if (!conversation) {
+      conversation = await this.conversations.create({
+        organizationId: input.organizationId,
+        contactId: contact.id,
+        phone: contact.phone,
+        status: "open"
+      });
+    }
+
+    const created = await this.calls.create({
+      organizationId: input.organizationId,
+      conversationId: conversation.id,
+      contactId: contact.id,
+      phone: contact.phone,
+      direction: input.direction,
+      status: input.status ?? "ringing",
+      channel: "vapi",
+      provider: "vapi",
+      providerCallId: input.providerCallId ?? null
+    });
+
+    if (input.status === "active") {
+      const updated = await this.calls.update(input.organizationId, created.id, {
+        startedAt: new Date(),
+        status: "active"
+      });
+      return updated ?? created;
+    }
+    return created;
+  }
+
+  /**
+   * Vapi server webhook — handles:
+   * - assistant-request (inbound: return tenant transient assistant)
+   * - status-update / end-of-call-report (inbound + outbound lifecycle)
+   */
+  async handleVapiWebhook(payload: unknown): Promise<VapiWebhookResult> {
     type VapiMessage = {
       type?: string;
       call?: {
         id?: string;
-        metadata?: { verbalCallId?: string; organizationId?: string };
+        type?: string;
+        status?: string;
+        phoneNumberId?: string;
+        metadata?: {
+          verbalCallId?: string;
+          organizationId?: string;
+          direction?: string;
+        };
+        customer?: { number?: string; name?: string };
+        phoneNumber?: { id?: string; number?: string };
         endedReason?: string;
       };
+      phoneNumber?: { id?: string; number?: string };
+      customer?: { number?: string; name?: string };
       status?: string;
       durationSeconds?: number;
+      duration?: number;
       summary?: string;
       transcript?: string;
       analysis?: { summary?: string };
+      artifact?: { transcript?: string };
     };
 
     const body = payload as VapiMessage & { message?: VapiMessage };
     const message: VapiMessage = body.message ?? body;
+    const type = message.type ?? "";
     const providerCallId = message.call?.id;
     const verbalCallId = message.call?.metadata?.verbalCallId;
-    const type = message.type;
+    const phoneNumberId =
+      message.call?.phoneNumberId ??
+      message.call?.phoneNumber?.id ??
+      message.phoneNumber?.id;
+    const customerNumber =
+      message.call?.customer?.number ??
+      message.customer?.number ??
+      "";
+    const customerName = message.call?.customer?.name ?? message.customer?.name;
+    const callType = message.call?.type; // inboundPhoneCall | outboundPhoneCall
+
+    // —— Inbound: Vapi asks us for the assistant to use ——
+    if (type === "assistant-request") {
+      return this.handleVapiAssistantRequest({
+        phoneNumberId,
+        customerNumber,
+        customerName,
+        providerCallId
+      });
+    }
 
     let call: CallRecord | null = null;
     if (verbalCallId) {
@@ -656,18 +773,62 @@ export class CallingService {
     if (!call && providerCallId) {
       call = await this.calls.findByProviderCallId(providerCallId);
     }
+
+    // Inbound call may first appear on status-update before we have a CRM row
+    // (if phone number uses fixed assistantId instead of assistant-request).
+    if (!call && customerNumber && (type === "status-update" || type === "call.started")) {
+      const orgId = await this.resolveVapiOrganizationId(phoneNumberId);
+      if (orgId) {
+        const isInbound =
+          callType === "inboundPhoneCall" ||
+          callType === "inbound" ||
+          message.call?.metadata?.direction === "inbound";
+        call = await this.ensureVapiCrmContext({
+          organizationId: orgId,
+          phone: customerNumber,
+          contactName: customerName,
+          providerCallId: providerCallId ?? null,
+          direction: isInbound ? "user_initiated" : "business_initiated",
+          status: "active"
+        });
+        if (call.conversationId) {
+          await this.messages.create({
+            organizationId: orgId,
+            conversationId: call.conversationId,
+            contactId: call.contactId,
+            direction: isInbound ? "inbound" : "outbound",
+            body: isInbound
+              ? `🤖 Inbound AI voice call (Vapi) from ${customerNumber}`
+              : `🤖 Outbound AI voice call (Vapi) to ${customerNumber}`,
+            status: "received",
+            providerMessageId: providerCallId ?? null
+          });
+        }
+        await this.auditLogger.log({
+          action: isInbound ? "call.vapi_inbound_started" : "call.vapi_outbound_started",
+          organizationId: orgId,
+          actorUserId: "system",
+          entityType: "voice_call",
+          entityId: call.id,
+          metadata: { providerCallId, phone: customerNumber, phoneNumberId }
+        });
+      }
+    }
+
     if (!call) {
-      return { ok: true };
+      return { kind: "ack", ok: true };
     }
 
     const summary =
       message.summary ??
       message.analysis?.summary ??
-      (message.transcript ? message.transcript.slice(0, 2000) : null);
+      message.transcript ??
+      message.artifact?.transcript?.slice(0, 2000) ??
+      null;
 
     if (type === "end-of-call-report" || type === "hang" || message.status === "ended") {
-      const duration =
-        typeof message.durationSeconds === "number" ? message.durationSeconds : null;
+      const durationRaw = message.durationSeconds ?? message.duration;
+      const duration = typeof durationRaw === "number" ? durationRaw : null;
       await this.calls.update(call.organizationId, call.id, {
         status: "completed",
         endedAt: new Date(),
@@ -681,7 +842,7 @@ export class CallingService {
           conversationId: call.conversationId,
           contactId: call.contactId,
           direction: "outbound",
-          body: `🤖 Vapi call summary:\n${summary}`,
+          body: `🤖 Vapi call summary (${call.direction === "user_initiated" ? "inbound" : "outbound"}):\n${summary}`,
           status: "sent",
           providerMessageId: providerCallId ?? null
         });
@@ -693,16 +854,219 @@ export class CallingService {
         actorUserId: call.agentUserId ?? "system",
         entityType: "voice_call",
         entityId: call.id,
-        metadata: { providerCallId, hasSummary: Boolean(summary) }
+        metadata: {
+          providerCallId,
+          hasSummary: Boolean(summary),
+          direction: call.direction
+        }
       });
-    } else if (message.status === "in-progress" || type === "status-update") {
+    } else if (
+      message.status === "in-progress" ||
+      message.status === "ringing" ||
+      type === "status-update"
+    ) {
+      const next: CallStatus =
+        message.status === "ringing" ? "ringing" : "active";
       await this.calls.update(call.organizationId, call.id, {
-        status: "active",
-        startedAt: call.startedAt ?? new Date()
+        status: next,
+        startedAt: call.startedAt ?? (next === "active" ? new Date() : call.startedAt)
       });
     }
 
-    return { ok: true, callId: call.id };
+    return {
+      kind: "ack",
+      ok: true,
+      callId: call.id,
+      direction: call.direction
+    };
+  }
+
+  private async resolveVapiOrganizationId(
+    phoneNumberId: string | undefined
+  ): Promise<string | null> {
+    const runtime = loadVapiConfig();
+    if (phoneNumberId && this.voiceAgentConfigRepository) {
+      const byTenant = await this.voiceAgentConfigRepository.findByVapiPhoneNumberId(
+        phoneNumberId
+      );
+      if (byTenant) return byTenant.organizationId;
+    }
+    return resolveOrgFromVapiPhoneNumberId(runtime, phoneNumberId);
+  }
+
+  private async handleVapiAssistantRequest(input: {
+    phoneNumberId?: string;
+    customerNumber: string;
+    customerName?: string;
+    providerCallId?: string;
+  }): Promise<VapiWebhookResult> {
+    const orgId = await this.resolveVapiOrganizationId(input.phoneNumberId);
+    if (!orgId || !this.voiceAgentService) {
+      return {
+        kind: "assistant-request",
+        vapiResponse: {
+          error: "No tenant is configured for this phone number."
+        }
+      };
+    }
+
+    const voiceConfig = await this.voiceAgentService.getInternal(orgId);
+    if (!voiceConfig.enabled) {
+      return {
+        kind: "assistant-request",
+        vapiResponse: {
+          error: "AI voice agent is currently disabled for this business."
+        }
+      };
+    }
+
+    const phone = input.customerNumber || "unknown";
+    const call = await this.ensureVapiCrmContext({
+      organizationId: orgId,
+      phone,
+      contactName: input.customerName,
+      providerCallId: input.providerCallId ?? null,
+      direction: "user_initiated",
+      status: "ringing"
+    });
+
+    // Load CRM context for this contact
+    let conversationContext = "";
+    if (call.conversationId) {
+      const msgs = await this.messages.listByConversation(orgId, call.conversationId);
+      conversationContext = msgs
+        .slice(-12)
+        .map((m) => `${m.direction === "inbound" ? "Customer" : "Agent"}: ${m.body}`)
+        .join("\n");
+    }
+
+    const contact = await this.contacts.findById(orgId, call.contactId);
+    const assistant = buildTransientAssistant({
+      config: voiceConfig,
+      contactName: contact?.fullName ?? input.customerName,
+      conversationContext,
+      callId: call.id,
+      direction: "inbound",
+      callerPhone: phone
+    });
+
+    // Prefer fixed assistant id if tenant set one, with overrides for live context
+    if (voiceConfig.vapiAssistantId || loadVapiConfig().assistantId) {
+      const assistantId = voiceConfig.vapiAssistantId || loadVapiConfig().assistantId!;
+      return {
+        kind: "assistant-request",
+        callId: call.id,
+        vapiResponse: {
+          assistantId,
+          assistantOverrides: {
+            firstMessage: assistant.firstMessage,
+            model: assistant.model,
+            voice: assistant.voice,
+            variableValues: {
+              companyName: voiceConfig.companyName,
+              agentName: voiceConfig.agentName,
+              knowledgeBase: voiceConfig.knowledgeBase,
+              contactName: contact?.fullName ?? "",
+              conversationContext,
+              direction: "inbound"
+            },
+            metadata: {
+              verbalCallId: call.id,
+              organizationId: orgId,
+              direction: "inbound"
+            }
+          }
+        }
+      };
+    }
+
+    return {
+      kind: "assistant-request",
+      callId: call.id,
+      vapiResponse: {
+        assistant
+      }
+    };
+  }
+
+  /**
+   * Mock / local: simulate a customer dialing the business Vapi number (inbound).
+   */
+  async simulateInboundVapi(
+    context: AuthContext,
+    payload: unknown
+  ): Promise<ReturnType<typeof serializeCall>> {
+    this.requireCaller(context);
+    const from =
+      typeof payload === "object" &&
+      payload &&
+      "from" in payload &&
+      typeof (payload as { from: unknown }).from === "string"
+        ? (payload as { from: string }).from
+        : "";
+    if (!from || from.length < 5) {
+      throw new AppError("VALIDATION_ERROR", 400, "from phone number is required");
+    }
+
+    if (!this.voiceAgentService) {
+      throw new AppError("INTERNAL_ERROR", 500, "Voice agent not configured");
+    }
+
+    const voiceConfig = await this.voiceAgentService.getInternal(context.organizationId);
+    if (!voiceConfig.enabled) {
+      throw new AppError("FORBIDDEN", 403, "AI voice agent is disabled");
+    }
+
+    const providerCallId = createId("vapi_in");
+    // Reuse assistant-request path
+    const assistantResult = await this.handleVapiAssistantRequest({
+      phoneNumberId: voiceConfig.vapiPhoneNumberId ?? loadVapiConfig().phoneNumberId,
+      customerNumber: from,
+      customerName: undefined,
+      providerCallId
+    });
+
+    if (assistantResult.kind === "assistant-request" && assistantResult.vapiResponse.error) {
+      throw new AppError(
+        "FORBIDDEN",
+        403,
+        String(assistantResult.vapiResponse.error)
+      );
+    }
+
+    const callId = assistantResult.callId;
+    if (!callId) {
+      throw new AppError("INTERNAL_ERROR", 500, "Failed to create inbound call");
+    }
+
+    const updated = await this.calls.update(context.organizationId, callId, {
+      status: "active",
+      providerCallId,
+      startedAt: new Date()
+    });
+
+    if (updated?.conversationId) {
+      await this.messages.create({
+        organizationId: context.organizationId,
+        conversationId: updated.conversationId,
+        contactId: updated.contactId,
+        direction: "inbound",
+        body: `🤖 Simulated inbound AI voice call from ${from} (Vapi mock)`,
+        status: "received",
+        providerMessageId: providerCallId
+      });
+    }
+
+    await this.auditLogger.log({
+      action: "call.vapi_inbound_simulated",
+      organizationId: context.organizationId,
+      actorUserId: context.userId,
+      entityType: "voice_call",
+      entityId: callId,
+      metadata: { from, providerCallId }
+    });
+
+    return serializeCall(updated!);
   }
 }
 

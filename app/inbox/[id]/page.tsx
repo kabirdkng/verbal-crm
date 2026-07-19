@@ -349,8 +349,10 @@ export default function ConversationPage() {
             {isLiveCall ? (
               <>
                 <span className="badge warn">
+                  {activeCall!.channel === "vapi" ? "AI " : ""}
                   Call {activeCall!.status}
-                  {activeCall!.direction === "user_initiated" ? " (inbound)" : ""}
+                  {activeCall!.direction === "user_initiated" ? " · inbound" : " · outbound"}
+                  {activeCall!.channel ? ` · ${activeCall!.channel}` : ""}
                 </span>
                 {activeCall!.status === "ringing" &&
                 activeCall!.direction === "user_initiated" ? (

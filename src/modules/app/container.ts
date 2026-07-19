@@ -181,7 +181,8 @@ const callingService = new CallingService(
   auditLogger,
   eventBus,
   vapiClient,
-  voiceAgentService
+  voiceAgentService,
+  voiceAgentConfigRepository
 );
 
 const ingestService = new WhatsAppIngestService(

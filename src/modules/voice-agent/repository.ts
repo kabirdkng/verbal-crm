@@ -35,6 +35,7 @@ const DEFAULTS = {
 
 export interface VoiceAgentConfigRepository {
   findByOrganization(organizationId: string): Promise<VoiceAgentConfigRecord | null>;
+  findByVapiPhoneNumberId(phoneNumberId: string): Promise<VoiceAgentConfigRecord | null>;
   getOrCreate(organizationId: string, companyName?: string): Promise<VoiceAgentConfigRecord>;
   update(organizationId: string, input: VoiceAgentConfigInput): Promise<VoiceAgentConfigRecord>;
 }
@@ -43,6 +44,14 @@ export class InMemoryVoiceAgentConfigRepository implements VoiceAgentConfigRepos
   async findByOrganization(organizationId: string): Promise<VoiceAgentConfigRecord | null> {
     return (
       getStore().voiceAgentConfigs.find((item) => item.organizationId === organizationId) ?? null
+    );
+  }
+
+  async findByVapiPhoneNumberId(phoneNumberId: string): Promise<VoiceAgentConfigRecord | null> {
+    return (
+      getStore().voiceAgentConfigs.find(
+        (item) => item.vapiPhoneNumberId === phoneNumberId
+      ) ?? null
     );
   }
 

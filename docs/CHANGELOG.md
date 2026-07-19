@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.1 — Vapi inbound + outbound (2026-07-20)
+
+### Added
+- **Inbound** Vapi: `assistant-request` webhook returns tenant transient assistant
+- Multi-tenant routing via `vapiPhoneNumberId` / `VAPI_PHONE_NUMBER_MAP`
+- CRM contact + conversation auto-created for inbound callers
+- `POST /api/v1/calls/vapi/simulate-inbound` for local mock demos
+- Settings UI: simulate inbound call; webhook path shown
+- Status/end-of-call webhooks for both directions
+
 ## 2.3.0 — Vapi AI voice agent + tenant context (2026-07-20)
 
 ### Added
